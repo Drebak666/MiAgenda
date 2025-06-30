@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentación</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" xintegrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Estilos específicos para la página de documentación (similares a registros_importantes) */
+        .documento-item {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .documento-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap; 
+            gap: 10px; 
+        }
+        .documento-title {
+            font-size: 1.3em;
+            color: #333;
+            flex-grow: 1; 
+            min-width: 150px; 
+        }
+        /* Eliminada la clase .documento-date ya que la fecha no se muestra */
+        .documento-type {
+            font-size: 0.9em;
+            color: #666;
+            background-color: #e9ecef;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        .documento-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        /* Eliminada la clase .documento-description ya que la descripción no se muestra */
+        .documento-file-container { 
+            margin-top: 10px;
+            text-align: center;
+        }
+        .documento-file-preview { 
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        /* Eliminada la sección .month-navigation */
+        .add-documento-container { 
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .add-documento-container label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .add-documento-container input[type="text"],
+        .add-documento-container input[type="date"], /* Se mantiene por si se usa en otros formularios, pero no para este */
+        .add-documento-container textarea, /* Se mantiene por si se usa en otros formularios, pero no para este */
+        .add-documento-container select {
+            width: calc(100% - 20px); 
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box; 
+        }
+        .add-documento-container .form-group {
+            margin-bottom: 15px;
+        }
+        .add-documento-container button.boton {
+            width: auto;
+            padding: 10px 20px;
+            margin-right: 10px;
+        }
+        .file-upload-section, .photo-capture-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #eee;
+        }
+        .file-upload-section input[type="file"] {
+            margin-top: 5px;
+            margin-bottom: 10px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: auto;
+        }
+        .file-preview-container {
+            margin-top: 10px;
+            text-align: center;
+        }
+        .file-preview-container img, .file-preview-container video {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .file-preview-container p {
+            font-style: italic;
+            color: #777;
+        }
+
+        /* Estilos de la cámara */
+        .camera-modal-content {
+            max-width: 700px;
+        }
+        .camera-stream {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            background-color: #000;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .photo-preview {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .camera-actions button {
+            margin: 5px;
+        }
+
+        /* Estilos para el modal de login */
+        #loginModal {
+            display: flex;
+        }
+        #loginModal .custom-modal-content {
+            max-width: 400px;
+            text-align: center;
+        }
+        #loginModal input[type="password"] {
+            padding: 10px;
+            margin: 15px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: calc(100% - 20px);
+            box-sizing: border-box;
+            font-size: 1.2em;
+            text-align: center;
+        }
+        #loginModal button {
+            width: 100%;
+            padding: 12px 0;
+            font-size: 1.1em;
+        }
+
+        /* Estilos de Paginación */
+        .pagination-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 20px;
+            gap: 10px;
+        }
+        .pagination-controls button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        .pagination-controls button:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+        .pagination-controls button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .pagination-info {
+            font-weight: bold;
+            color: #333;
+        }
+        
+    </style>
+</head>
+<body>
+    <!-- Modal de Login (Inicialmente visible) -->
+    <div id="loginModal" class="custom-modal-overlay">
+        <div class="custom-modal-content">
+            <h3>Acceso a Documentación</h3>
+            <p>Por favor, introduce el PIN para acceder.</p>
+            <input type="password" id="pinInput" placeholder="Introduce tu PIN" maxlength="4">
+            <button id="loginButton" class="boton">Acceder</button>
+            <p id="loginError" style="color: #dc3545; margin-top: 10px;"></p>
+        </div>
+    </div>
+
+    <div class="container" id="mainContent" style="display:none;">
+        <h1>Tus Documentos Importantes</h1>
+
+        <!-- Formulario para Añadir Nuevo Documento -->
+        <div class="add-documento-container">
+            <h2>Añadir Nuevo Documento</h2>
+            <form id="addDocumentoForm">
+                <div class="form-group">
+                    <label for="documentoAddTitulo">Título:</label>
+                    <input type="text" id="documentoAddTitulo" placeholder="Título del documento" required>
+                </div>
+                <!-- Eliminado el campo de descripción -->
+                <div class="form-group">
+                    <label for="documentoAddTipo">Tipo:</label>
+                    <select id="documentoAddTipo">
+                        <!-- Opciones cargadas dinámicamente -->
+                    </select>
+                </div>
+                
+                <div class="photo-capture-section">
+                    <p>Opcional: Adjuntar una foto o archivo</p>
+                    <button type="button" id="openCameraAddButton" class="boton"><i class="fas fa-camera"></i> Tomar Foto</button>
+                    <input type="file" id="fileUploadInput" accept="image/*, .txt, .pdf, .doc, .docx, .xls, .xlsx" style="margin-left: 10px;">
+                    <div id="filePreviewContainer" class="file-preview-container" style="display:none;">
+                        <img id="fileImagePreview" class="documento-file-preview" style="display:none;">
+                        <p id="fileTextPreview" style="display:none;"></p>
+                    </div>
+                    <button type="button" id="clearFileButton" class="boton cancel-button" style="display:none; margin-top: 10px;"><i class="fas fa-times"></i> Limpiar Archivo/Foto</button>
+                </div>
+
+                <button type="submit" class="boton" style="margin-top: 15px;"><i class="fas fa-save"></i> Guardar Documento</button>
+            </form>
+        </div>
+
+        <!-- Filtros -->
+        <div class="form-group" style="margin-top: 10px;">
+            <label for="filterTipo">Filtrar por Categoría:</label>
+            <select id="filterTipo">
+                <option value="">Todas las categorías</option>
+                <!-- Opciones cargadas dinámicamente -->
+            </select>
+        </div>
+
+        <ul id="documentosList" class="notes-list">
+            <li class="mensaje-info">Cargando documentos...</li>
+        </ul>
+
+        <!-- Controles de Paginación -->
+        <div class="pagination-controls">
+            <button id="prevPageButton" disabled><i class="fas fa-chevron-left"></i> Anterior</button>
+            <span id="paginationInfo" class="pagination-info">Página 1 de 1</span>
+            <button id="nextPageButton" disabled>Siguiente <i class="fas fa-chevron-right"></i></button>
+        </div>
+
+        <div class="navigation">
+            <a href="/" class="boton"><i class="fas fa-home"></i> Volver a la Agenda</a>
+        </div>
+    </div>
+
+    <!-- Modal para Captura de Foto -->
+    <div id="cameraModal" class="custom-modal-overlay" style="display:none;">
+        <div class="custom-modal-content camera-modal-content">
+            <h3>Tomar Foto</h3>
+            <video id="videoStream" class="camera-stream" autoplay playsinline></video>
+            <canvas id="photoCanvas" style="display:none;"></canvas>
+            <img id="photoPreview" class="photo-preview" style="display:none;">
+            <p id="cameraStatus" style="text-align: center; color: #777; font-size: 0.9em;"></p>
+            <div class="camera-actions">
+                <button id="capturePhotoButton" class="boton"><i class="fas fa-camera"></i> Tomar Foto</button>
+                <button id="retakePhotoButton" class="boton cancel-button" style="display:none;"><i class="fas fa-redo"></i> Repetir</button>
+                <button id="confirmPhotoButton" class="boton" style="display:none;"><i class="fas fa-check"></i> Confirmar</button>
+                <button id="closeCameraModalButton" class="boton cancel-button"><i class="fas fa-times"></i> Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Alert/Confirm Modal HTML (GLOBAL) -->
+    <div id="customModalOverlay" class="custom-modal-overlay" style="display:none;">
+        <div class="custom-modal-content">
+            <h3 id="customModalTitle"></h3>
+            <p id="customModalMessage"></p>
+            <div class="modal-actions" id="customModalActions">
+                <!-- Buttons will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ITEMS_PER_PAGE = 10; // Máximo de elementos por página
+
+        const loginModal = document.getElementById('loginModal');
+        const pinInput = document.getElementById('pinInput');
+        const loginButton = document.getElementById('loginButton');
+        const loginError = document.getElementById('loginError');
+        const mainContent = document.getElementById('mainContent');
+
+        const addDocumentoForm = document.getElementById('addDocumentoForm');
+        // const documentoAddFecha = document.getElementById('documentoAddFecha'); // Eliminado
+        const documentoAddTitulo = document.getElementById('documentoAddTitulo');
+        // const documentoAddDescripcion = document.getElementById('documentoAddDescripcion'); // Eliminado
+        const documentoAddTipo = document.getElementById('documentoAddTipo');
+
+        const fileUploadInput = document.getElementById('fileUploadInput');
+        const filePreviewContainer = document.getElementById('filePreviewContainer');
+        const fileImagePreview = document.getElementById('fileImagePreview');
+        const fileTextPreview = document.getElementById('fileTextPreview');
+        const clearFileButton = document.getElementById('clearFileButton');
+        const openCameraAddButton = document.getElementById('openCameraAddButton');
+
+
+        const documentosList = document.getElementById('documentosList');
+        // Eliminados botones de navegación por mes
+        const filterTipoSelect = document.getElementById('filterTipo');
+
+        let allDocumentos = []; 
+        let currentFileBase64 = null;
+        let currentFileName = null;
+        let currentMimeType = null;
+        let currentPage = 1;
+        let totalPages = 1;
+
+        // Elementos de la Cámara
+        const cameraModal = document.getElementById('cameraModal');
+        const videoStream = document.getElementById('videoStream');
+        const photoCanvas = document.getElementById('photoCanvas');
+        const photoPreview = document.getElementById('photoPreview');
+        const capturePhotoButton = document.getElementById('capturePhotoButton');
+        const retakePhotoButton = document.getElementById('retakePhotoButton');
+        const confirmPhotoButton = document.getElementById('confirmPhotoButton');
+        const closeCameraModalButton = document.getElementById('closeCameraModalButton');
+        const cameraStatus = document.getElementById('cameraStatus');
+
+        let currentStream;
+
+        // Elementos de Paginación
+        const prevPageButton = document.getElementById('prevPageButton');
+        const nextPageButton = document.getElementById('nextPageButton');
+        const paginationInfo = document.getElementById('paginationInfo');
+
+
+        // --- Funciones de Modal Personalizado ---
+        function showCustomModal(message, title = 'Mensaje', type = 'alert') {
+            return new Promise((resolve) => {
+                const modalOverlay = document.getElementById('customModalOverlay');
+                const modalTitle = document.getElementById('customModalTitle');
+                const modalMessage = document.getElementById('customModalMessage');
+                const modalActions = document.getElementById('customModalActions');
+
+                modalTitle.textContent = title;
+                modalMessage.textContent = message;
+                modalActions.innerHTML = ''; 
+
+                if (type === 'alert') {
+                    const okButton = document.createElement('button');
+                    okButton.classList.add('boton');
+                    okButton.textContent = 'Aceptar';
+                    okButton.addEventListener('click', () => {
+                        modalOverlay.style.display = 'none';
+                        resolve(true);
+                    });
+                    modalActions.appendChild(okButton);
+                } else if (type === 'confirm') {
+                    const yesButton = document.createElement('button');
+                    yesButton.classList.add('boton');
+                    yesButton.textContent = 'Sí';
+                    yesButton.addEventListener('click', () => {
+                        modalOverlay.style.display = 'none';
+                        resolve(true);
+                    });
+                    const noButton = document.createElement('button');
+                    noButton.classList.add('boton', 'cancel-button');
+                    noButton.textContent = 'No';
+                    noButton.addEventListener('click', () => {
+                        modalOverlay.style.display = 'none';
+                        resolve(false);
+                    });
+                    modalActions.appendChild(yesButton);
+                    modalActions.appendChild(noButton);
+                }
+
+                modalOverlay.style.display = 'flex';
+            });
+        }
+
+        function showCustomAlert(message, title = 'Mensaje') {
+            return showCustomModal(message, title, 'alert');
+        }
+
+        async function showCustomConfirm(message, title = 'Confirmación') {
+            return await showCustomModal(message, title, 'confirm');
+        }
+
+        // --- Lógica de Autenticación (PIN) ---
+        loginButton.addEventListener('click', async () => {
+            const pin = pinInput.value;
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: pin })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                loginModal.style.display = 'none';
+                mainContent.style.display = 'block';
+                await fetchAndRenderAllData(); 
+            } else {
+                loginError.textContent = data.error;
+            }
+        });
+
+        pinInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                loginButton.click();
+            }
+        });
+
+        // --- Lógica de la Cámara ---
+        async function initCamera() {
+            cameraStatus.textContent = 'Iniciando cámara...';
+            videoStream.style.display = 'block';
+            photoPreview.style.display = 'none';
+            capturePhotoButton.style.display = 'block'; 
+            retakePhotoButton.style.display = 'none';
+            confirmPhotoButton.style.display = 'none';
+            clearFilePreview(); 
+
+            if (currentStream) {
+                stopCamera();
+            }
+
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { exact: 'environment' } 
+                    }
+                });
+                videoStream.srcObject = currentStream;
+                videoStream.play();
+                cameraStatus.textContent = 'Cámara trasera activa. Haz clic en "Tomar Foto".';
+            } catch (err) {
+                console.warn("ADVERTENCIA: No se pudo acceder a la cámara trasera, intentando la frontal:", err);
+                cameraStatus.textContent = 'Cámara trasera no disponible, intentando la frontal.';
+                try {
+                    currentStream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'user'
+                        }
+                    });
+                    videoStream.srcObject = currentStream;
+                    videoStream.play();
+                    cameraStatus.textContent = 'Cámara frontal activa. Haz clic en "Tomar Foto".';
+                } catch (errFront) {
+                    console.error("ERROR: No se pudo acceder a ninguna cámara: ", errFront);
+                    showCustomAlert('No se pudo acceder a la cámara. Asegúrate de haber dado permiso y de que no esté en uso por otra aplicación.', 'Error de Cámara');
+                    cameraModal.style.display = 'none';
+                    cameraStatus.textContent = 'No se pudo acceder a ninguna cámara. Verifica permisos.';
+                    return;
+                }
+            }
+        }
+
+        function stopCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                videoStream.srcObject = null;
+            }
+        }
+
+        capturePhotoButton.addEventListener('click', () => {
+            if (videoStream.readyState === videoStream.HAVE_ENOUGH_DATA) {
+                photoCanvas.width = videoStream.videoWidth;
+                photoCanvas.height = videoStream.videoHeight;
+                const context = photoCanvas.getContext('2d');
+                context.drawImage(videoStream, 0, 0, photoCanvas.width, photoCanvas.height);
+                
+                currentFileBase64 = photoCanvas.toDataURL('image/png');
+                currentFileName = `foto_documento_${new Date().toISOString().substring(0,10)}.png`;
+                currentMimeType = 'image/png';
+
+                photoPreview.src = currentFileBase64;
+                videoStream.style.display = 'none';
+                photoPreview.style.display = 'block';
+                capturePhotoButton.style.display = 'none';
+                retakePhotoButton.style.display = 'block';
+                confirmPhotoButton.style.display = 'block';
+                cameraStatus.textContent = 'Foto capturada. Confirma o repite.';
+                stopCamera();
+            } else {
+                cameraStatus.textContent = 'Esperando stream de video para capturar...';
+            }
+        });
+
+        retakePhotoButton.addEventListener('click', () => {
+            currentFileBase64 = null;
+            currentFileName = null;
+            currentMimeType = null;
+            photoPreview.style.display = 'none';
+            capturePhotoButton.style.display = 'block'; 
+            retakePhotoButton.style.display = 'none';
+            confirmPhotoButton.style.display = 'none';
+            initCamera();
+        });
+
+        confirmPhotoButton.addEventListener('click', () => {
+            cameraModal.style.display = 'none';
+            stopCamera();
+            updateFilePreview(); 
+            cameraStatus.textContent = '';
+            capturePhotoButton.style.display = 'block';
+            retakePhotoButton.style.display = 'none';
+            confirmPhotoButton.style.display = 'none';
+        });
+
+        closeCameraModalButton.addEventListener('click', () => {
+            cameraModal.style.display = 'none';
+            stopCamera();
+            currentFileBase64 = null;
+            currentFileName = null;
+            currentMimeType = null;
+            clearFilePreview(); 
+            cameraStatus.textContent = '';
+            capturePhotoButton.style.display = 'block';
+            retakePhotoButton.style.display = 'none';
+            confirmPhotoButton.style.display = 'none';
+        });
+
+        openCameraAddButton.addEventListener('click', () => {
+            cameraModal.style.display = 'flex';
+            videoStream.style.display = 'block';
+            photoPreview.style.display = 'none';
+            capturePhotoButton.style.display = 'block'; 
+            retakePhotoButton.style.display = 'none';
+            confirmPhotoButton.style.display = 'none';
+            initCamera();
+        });
+
+        // --- Lógica de Subida de Archivos ---
+        fileUploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    currentFileBase64 = e.target.result;
+                    currentFileName = file.name;
+                    currentMimeType = file.type;
+                    updateFilePreview();
+                };
+                reader.readAsDataURL(file);
+            } else {
+                currentFileBase64 = null;
+                currentFileName = null;
+                currentMimeType = null;
+                clearFilePreview();
+            }
+        });
+
+        clearFileButton.addEventListener('click', () => {
+            currentFileBase64 = null;
+            currentFileName = null;
+            currentMimeType = null;
+            fileUploadInput.value = ''; 
+            clearFilePreview();
+        });
+
+        function updateFilePreview() {
+            filePreviewContainer.style.display = 'block';
+            clearFilePreviewContent(); 
+
+            if (currentFileBase64 && currentMimeType) {
+                clearFileButton.style.display = 'block'; 
+
+                if (currentMimeType.startsWith('image/')) {
+                    fileImagePreview.src = currentFileBase64;
+                    fileImagePreview.style.display = 'block';
+                } else if (currentMimeType.startsWith('text/')) {
+                    fileTextPreview.textContent = `Archivo de texto: ${currentFileName || 'Sin Nombre'}`;
+                    fileTextPreview.style.display = 'block';
+                } else {
+                    fileTextPreview.textContent = `Archivo adjunto: ${currentFileName || 'Sin Nombre'} (${currentMimeType})`;
+                    fileTextPreview.style.display = 'block';
+                }
+            } else {
+                filePreviewContainer.style.display = 'none';
+                clearFileButton.style.display = 'none';
+            }
+        }
+
+        function clearFilePreview() {
+            filePreviewContainer.style.display = 'none';
+            clearFilePreviewContent();
+            clearFileButton.style.display = 'none';
+            fileUploadInput.value = ''; 
+        }
+
+        function clearFilePreviewContent() {
+            fileImagePreview.style.display = 'none';
+            fileImagePreview.src = '';
+            fileTextPreview.style.display = 'none';
+            fileTextPreview.textContent = '';
+        }
+
+
+        // --- Lógica de Filtros y Paginación de Documentos ---
+        async function fetchTiposDocumento() {
+            try {
+                const response = await fetch('/api/tipos_documento'); 
+                if (!response.ok) {
+                    if (response.status === 401) {
+                         console.warn("No autenticado para cargar tipos de documento. Se cargará después del login.");
+                         return; 
+                    }
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error al cargar los tipos de documento.');
+                }
+                const tipos = await response.json();
+                
+                documentoAddTipo.innerHTML = '';
+                tipos.forEach(tipo => {
+                    const option = document.createElement('option');
+                    option.value = tipo.nombre;
+                    option.textContent = tipo.nombre;
+                    documentoAddTipo.appendChild(option);
+                });
+
+                filterTipoSelect.innerHTML = '<option value="">Todas las categorías</option>';
+                tipos.forEach(tipo => {
+                    const option = document.createElement('option');
+                    option.value = tipo.nombre;
+                    option.textContent = tipo.nombre;
+                    filterTipoSelect.appendChild(option);
+                });
+
+            } catch (error) {
+                console.error('Error al cargar tipos de documento:', error);
+                showCustomAlert(`No se pudieron cargar las categorías de documento: ${error.message}`, 'Error de Categorías');
+            }
+        }
+
+        async function fetchAndRenderAllData() {
+            documentosList.innerHTML = '<li class="mensaje-info">Cargando documentos...</li>';
+            try {
+                const response = await fetch('/api/documentacion');
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error al cargar los documentos.');
+                }
+                allDocumentos = await response.json(); 
+                // Filtrar por categoría seleccionada
+                const selectedCategory = filterTipoSelect.value;
+                const filteredDocuments = selectedCategory 
+                    ? allDocumentos.filter(doc => doc.tipo === selectedCategory)
+                    : allDocumentos;
+                
+                // Ordenar para una paginación consistente (ej. por título o ID)
+                filteredDocuments.sort((a, b) => {
+                    const titleA = a.titulo || '';
+                    const titleB = b.titulo || '';
+                    return titleA.localeCompare(titleB);
+                });
+
+                totalPages = Math.ceil(filteredDocuments.length / ITEMS_PER_PAGE);
+                currentPage = 1; // Resetear a la primera página cada vez que se recargan/filtran los datos
+                renderDocumentos(filteredDocuments); // Pasar los documentos filtrados a renderDocumentos
+                await fetchTiposDocumento(); 
+            } catch (error) {
+                console.error('Error al cargar documentos:', error);
+                documentosList.innerHTML = `<li class="mensaje-info" style="color: #dc3545;">Error: ${error.message}. No se pudieron cargar los documentos.</li>`;
+                showCustomAlert(`No se pudieron cargar los documentos: ${error.message}`, 'Error de Carga');
+            }
+        }
+
+        function renderDocumentos(documentsToRender = allDocumentos) {
+            documentosList.innerHTML = '';
+            
+            // Aplicar el filtro de categoría ANTES de la paginación para calcular correctamente
+            const selectedCategory = filterTipoSelect.value;
+            let currentFilteredDocuments = selectedCategory 
+                ? allDocumentos.filter(doc => doc.tipo === selectedCategory)
+                : allDocumentos;
+            
+            currentFilteredDocuments.sort((a, b) => {
+                const titleA = a.titulo || '';
+                const titleB = b.titulo || '';
+                return titleA.localeCompare(titleB);
+            });
+
+            totalPages = Math.ceil(currentFilteredDocuments.length / ITEMS_PER_PAGE);
+            if (currentPage > totalPages && totalPages > 0) { // Ajustar página si se elimina el último elemento de una página
+                currentPage = totalPages;
+            } else if (totalPages === 0) {
+                currentPage = 0;
+            }
+            if (currentPage === 0 && currentFilteredDocuments.length > 0) currentPage = 1; // Si hay docs y page es 0, establecer a 1
+
+            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+            const paginatedDocuments = currentFilteredDocuments.slice(startIndex, endIndex);
+
+            if (paginatedDocuments.length === 0) {
+                documentosList.innerHTML = '<li class="mensaje-info">No hay documentos para esta categoría.</li>';
+            } else {
+                paginatedDocuments.forEach(doc => {
+                    const li = document.createElement('li');
+                    li.classList.add('documento-item');
+                    li.dataset.id = doc.id;
+                    li.dataset.filename = doc.nombre_archivo || '';
+                    li.dataset.mimetype = doc.mime_type || '';
+
+                    const headerDiv = document.createElement('div');
+                    headerDiv.classList.add('documento-header');
+
+                    const titleSpan = document.createElement('span');
+                    titleSpan.classList.add('documento-title');
+                    titleSpan.textContent = doc.titulo;
+
+                    // Eliminada la fecha
+                    const typeSpan = document.createElement('span');
+                    typeSpan.classList.add('documento-type');
+                    typeSpan.textContent = doc.tipo || 'General';
+
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.classList.add('documento-actions');
+
+                    // Botón de eliminar
+                    const deleteButton = document.createElement('button');
+                    deleteButton.classList.add('btn-eliminar');
+                    deleteButton.innerHTML = '<i class="fas fa-trash"></i> Eliminar';
+                    deleteButton.title = 'Eliminar Documento';
+                    deleteButton.addEventListener('click', () => deleteDocumento(doc.id));
+                    actionsDiv.appendChild(deleteButton);
+
+                    // Botón de Descargar (solo si hay archivo/imagen)
+                    if (doc.imagen_base64) {
+                        const downloadButton = document.createElement('button');
+                        downloadButton.classList.add('boton');
+                        downloadButton.innerHTML = '<i class="fas fa-download"></i> Descargar';
+                        downloadButton.title = 'Descargar Archivo/Imagen';
+                        downloadButton.addEventListener('click', () => downloadFile(doc.imagen_base64, doc.nombre_archivo, doc.mime_type));
+                        actionsDiv.appendChild(downloadButton);
+                    }
+
+                    // Botón de Compartir por WhatsApp
+                    const whatsappButton = document.createElement('button');
+                    whatsappButton.classList.add('boton');
+                    whatsappButton.innerHTML = '<i class="fab fa-whatsapp"></i> WhatsApp';
+                    whatsappButton.title = 'Compartir por WhatsApp';
+                    whatsappButton.addEventListener('click', () => shareViaWhatsApp(doc.titulo, doc.descripcion || '')); // Pasar descripción vacía si no existe
+                    actionsDiv.appendChild(whatsappButton);
+
+
+                    headerDiv.appendChild(titleSpan);
+                    // Eliminada la fecha del header
+                    headerDiv.appendChild(typeSpan);
+                    headerDiv.appendChild(actionsDiv); 
+
+                    // Eliminada la descripción
+                    // const descriptionP = document.createElement('p');
+                    // descriptionP.classList.add('documento-description');
+                    // descriptionP.textContent = doc.descripcion || 'Sin descripción.';
+                    // li.appendChild(descriptionP);
+
+
+                    li.appendChild(headerDiv);
+                    // li.appendChild(descriptionP); // No se añade la descripción
+
+                    // Mostrar imagen/archivo adjunto si existe
+                    if (doc.imagen_base64 && doc.mime_type) {
+                        const fileContainer = document.createElement('div');
+                        fileContainer.classList.add('documento-file-container'); 
+                        if (doc.mime_type.startsWith('image/')) {
+                            const img = document.createElement('img');
+                            img.classList.add('documento-file-preview');
+                            img.src = doc.imagen_base64;
+                            img.alt = 'Imagen adjunta al documento';
+                            fileContainer.appendChild(img);
+                        } else {
+                            const fileIcon = document.createElement('i');
+                            fileIcon.classList.add('fas', 'fa-file', 'fa-2x'); // Tamaño de icono
+                            if (doc.mime_type.includes('pdf')) fileIcon.classList.add('fa-file-pdf');
+                            else if (doc.mime_type.includes('word') || doc.mime_type.includes('document')) fileIcon.classList.add('fa-file-word');
+                            else if (doc.mime_type.includes('text')) fileIcon.classList.add('fa-file-alt');
+                            else if (doc.mime_type.includes('spreadsheet') || doc.mime_type.includes('excel')) fileIcon.classList.add('fa-file-excel');
+                            else fileIcon.classList.add('fa-file'); // Genérico
+
+                            const fileInfoP = document.createElement('p');
+                            fileInfoP.textContent = `Archivo adjunto: ${doc.nombre_archivo || 'Sin nombre'} (${doc.mime_type})`;
+                            fileContainer.appendChild(fileIcon); 
+                            fileContainer.appendChild(fileInfoP);
+                        }
+                        li.appendChild(fileContainer);
+                    }
+
+                    documentosList.appendChild(li);
+                });
+            }
+            updatePaginationControls();
+        }
+
+        function updatePaginationControls() {
+            paginationInfo.textContent = `Página ${currentPage} de ${totalPages}`;
+            prevPageButton.disabled = currentPage === 1;
+            nextPageButton.disabled = currentPage === totalPages || totalPages === 0;
+        }
+
+        async function deleteDocumento(documentoId) {
+            const confirmAction = await showCustomConfirm('¿Estás seguro de que quieres eliminar este documento?');
+            if (confirmAction) {
+                try {
+                    const response = await fetch(`/api/documentacion/${documentoId}`, {
+                        method: 'DELETE'
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Error al eliminar el documento.');
+                    }
+                    showCustomAlert('Documento eliminado con éxito.', 'Eliminación Exitosa');
+                    await fetchAndRenderAllData(); // Recargar todos los datos y renderizar
+                } catch (error) {
+                    console.error('Error al eliminar documento:', error);
+                    showCustomAlert(`No se pudo eliminar el documento: ${error.message}`, 'Error de Eliminación');
+                }
+            }
+        }
+
+        // --- Funcionalidad de Descarga de Archivo ---
+        function downloadFile(base64Data, filename, mimeType) {
+            if (!base64Data) {
+                showCustomAlert('No hay datos para descargar.', 'Error de Descarga');
+                return;
+            }
+            const link = document.createElement('a');
+            link.href = base64Data; 
+            link.download = filename || `documento_descargado.${mimeType.split('/')[1] || 'bin'}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showCustomAlert('Documento descargado con éxito.', 'Descarga Completa');
+        }
+
+        // --- Funcionalidad de Compartir por WhatsApp ---
+        function shareViaWhatsApp(title, description) {
+            // La descripción ahora puede ser vacía, ya que no se muestra en el formulario
+            const textToShare = `*Documento Importante:* ${title}\n\n${description || ''}\n\n[Consulta tu agenda para más detalles]`;
+            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(textToShare)}`;
+            
+            const newWindow = window.open(whatsappUrl, '_blank');
+            if (!newWindow || newWindow.closed || typeof newWindow.closed=='undefined') {
+                window.location.href = whatsappUrl;
+            }
+        }
+
+
+        // --- Event Listeners ---
+        // Eliminados prevMonthButton y nextMonthButton
+        
+        filterTipoSelect.addEventListener('change', () => {
+            fetchAndRenderAllData(); // Recargar y renderizar datos con el nuevo filtro
+        });
+
+        // Event Listeners para paginación
+        prevPageButton.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderDocumentos();
+            }
+        });
+
+        nextPageButton.addEventListener('click', () => {
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderDocumentos();
+            }
+        });
+
+        addDocumentoForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            // Eliminada la obtención de fecha y descripción del formulario
+            // const fecha = documentoAddFecha.value; 
+            const titulo = documentoAddTitulo.value.trim();
+            // const descripcion = documentoAddDescripcion.value.trim(); 
+            const tipo = documentoAddTipo.value;
+
+            if (!titulo) {
+                showCustomAlert('El Título es obligatorio.', 'Campo Obligatorio');
+                return;
+            }
+
+            try {
+                // Generar la fecha actual al momento de guardar
+                const fechaActual = new Date().toISOString().substring(0, 10); // Formato YYYY-MM-DD
+                const response = await fetch('/api/documentacion', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fecha: fechaActual, // Usar la fecha actual del sistema
+                        titulo: titulo,
+                        descripcion: "", // Dejar descripción vacía
+                        tipo: tipo,
+                        imagen_base64: currentFileBase64, 
+                        nombre_archivo: currentFileName,    
+                        mime_type: currentMimeType          
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error desconocido al guardar el documento.');
+                }
+                showCustomAlert('Documento guardado con éxito.', 'Guardado Exitoso');
+                
+                addDocumentoForm.reset();
+                currentFileBase64 = null;
+                currentFileName = null;
+                currentMimeType = null;
+                clearFilePreview();
+                documentoAddTipo.value = 'Factura'; 
+                fetchAndRenderAllData(); // Recargar y renderizar todo desde la primera página
+            } catch (error) {
+                console.error('Error al guardar el documento:', error);
+                showCustomAlert(`No se pudo guardar el documento: ${error.message}`, 'Error de Guardado');
+            }
+        });
+
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // No es necesario updateMonthYearDisplay() ya que no hay navegación por meses
+        });
+    </script>
+</body>
+</html>

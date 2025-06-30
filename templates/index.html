@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Agenda</title>
+    <!-- Favicon for mobile shortcut icon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/agenda_icon.png') }}">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" xintegrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==>" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    
+</head>
+<body class="bg-gray-100 font-sans antialiased">
+    <div class="max-w-4xl mx-auto p-4 bg-white shadow-lg rounded-lg mt-6">
+        <div class="text-center text-xl font-semibold text-gray-700 mb-4" id="fechaActualDisplay"></div>
+
+        <!-- SECCIÓN 1: PRÓXIMAS CITAS -->
+        <h2 class="text-2xl font-bold text-gray-800 mb-3 border-b pb-2">Próximas Citas:</h2>
+        <div class="list-section mb-6">
+            <ul id="upcomingCitasList" class="space-y-2">
+                <li class="text-gray-500 italic">Cargando citas...</li>
+            </ul>
+             <div id="moreCitasContainer" style="display:none;" class="mt-4 space-y-2">
+                <!-- Additional appointments will be loaded here -->
+            </div>
+            <button id="toggleCitasButton" class="mt-4 w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg transition-all duration-200" style="display:none;">
+                Ver más citas
+            </button>
+        </div>
+
+        <!-- SECCIÓN 2: AÑADIR ACTIVIDAD -->
+        <h2 class="text-2xl font-bold text-gray-800 mb-3 border-b pb-2">Añadir Actividad:</h2>
+        <!-- Unified Form for Tasks, Routines, and Appointments (now compact) -->
+        <form id="unifiedEntryForm" class="task-form-container p-4 bg-blue-50 rounded-lg shadow-inner">
+            <div class="mb-4">
+                <label for="entryTextInput" class="block text-gray-700 text-sm font-bold mb-2">Descripción:</label>
+                <input type="text" id="entryTextInput" placeholder="Añadir una nueva tarea, rutina o cita..." required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+
+            <div class="mb-4 flex items-center justify-end gap-4">
+                <div class="flex-grow flex justify-end space-x-2">
+                    <button type="button" class="relative bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full shadow-md hover:shadow-lg transition-all duration-200" id="quickListButton" title="Añadir a Lista de Compra">
+                        <i class="fas fa-shopping-cart text-lg"></i>
+                        <span class="button-count" id="quickListCount">0</span>
+                    </button>
+                    <!-- NEW: Button to trigger automatic shopping list generation -->
+                    <button type="button" class="relative bg-teal-500 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-full shadow-md hover:shadow-lg transition-all duration-200" id="generateShoppingListButton" title="Generar Lista de Compra (desde menú)">
+                        <i class="fas fa-receipt text-lg"></i>
+                    </button>
+                    <button type="button" class="relative bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full shadow-md hover:shadow-lg transition-all duration-200" id="quickNotesButton" title="Añadir a Notas Rápidas">
+                        <i class="fas fa-pencil-alt text-lg"></i>
+                        <span class="button-count" id="quickNotesCount">0</span>
+                    </button>
+                    <button type="button" class="relative bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full shadow-md hover:shadow-lg transition-all duration-200" id="quickCitaButton" title="Añadir Cita">
+                        <i class="fas fa-calendar-check text-lg"></i>
+                        <span class="button-count" id="quickCitaCount">0</span>
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg w-full transition-all duration-200">Guardar</button>
+        </form>
+
+        <!-- SECCIÓN 3: AGENDA DE HOY -->
+        <h2 class="text-2xl font-bold text-gray-800 mt-8 mb-3 border-b pb-2">Agenda de Hoy:</h2>
+        <div class="list-section mb-6">
+            <ul id="combinedAgendaList" class="space-y-2">
+                <li class="text-gray-500 italic">Cargando agenda...</li>
+            </ul>
+        </div>
+
+        <!-- NEW SECTION: COMIDA DE HOY -->
+        <h2 class="text-2xl font-bold text-gray-800 mt-8 mb-3 border-b pb-2">Comida de Hoy:</h2>
+        <div class="relative"> <!-- Added relative for absolute positioning of buttons -->
+            <button id="prevMealBtn" class="absolute left-0 top-1/2 -translate-y-1/2 bg-gray-200 hover:bg-gray-300 p-2 rounded-full shadow-md z-10">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <div id="todayFoodSection" class="space-y-4">
+                <div id="breakfastCard" class="today-meal-card" style="display:none;">
+                    <div class="flex justify-between items-center mb-2">
+                        <h4>Desayuno</h4>
+                        <div class="meal-actions flex gap-2">
+                            <button class="toggle-meal-completed btn-compact bg-blue-500 hover:bg-blue-700 text-white" data-meal-type="Desayuno" title="Marcar como Completado/Descompletado">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <a href="/alimentacion" class="btn-compact bg-yellow-500 hover:bg-yellow-700 text-white" title="Ir a Alimentación">
+                                <i class="fas fa-apple-alt"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <p id="breakfastRecipeName" class="text-center"></p>
+                    <div id="breakfastRecipeInfo" class="recipe-info"></div>
+                </div>
+                <div id="lunchCard" class="today-meal-card" style="display:none;">
+                    <div class="flex justify-between items-center mb-2">
+                        <h4>Almuerzo</h4>
+                        <div class="meal-actions flex gap-2">
+                            <button class="toggle-meal-completed btn-compact bg-blue-500 hover:bg-blue-700 text-white" data-meal-type="Almuerzo" title="Marcar como Completado/Descompletado">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <a href="/alimentacion" class="btn-compact bg-yellow-500 hover:bg-yellow-700 text-white" title="Ir a Alimentación">
+                                <i class="fas fa-apple-alt"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <p id="lunchRecipeName" class="text-center"></p>
+                    <div id="lunchRecipeInfo" class="recipe-info"></div>
+                </div>
+                <div id="dinnerCard" class="today-meal-card" style="display:none;">
+                    <div class="flex justify-between items-center mb-2">
+                        <h4>Cena</h4>
+                        <div class="meal-actions flex gap-2">
+                            <button class="toggle-meal-completed btn-compact bg-blue-500 hover:bg-blue-700 text-white" data-meal-type="Cena" title="Marcar como Completado/Descompletado">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <a href="/alimentacion" class="btn-compact bg-yellow-500 hover:bg-yellow-700 text-white" title="Ir a Alimentación">
+                                <i class="fas fa-apple-alt"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <p id="dinnerRecipeName" class="text-center"></p>
+                    <div id="dinnerRecipeInfo" class="recipe-info"></div>
+                </div>
+                <p id="noMealsToday" class="text-gray-500 italic text-center" style="display:none;">No hay comidas programadas para hoy.</p>
+            </div>
+            <button id="nextMealBtn" class="absolute right-0 top-1/2 -translate-y-1/2 bg-gray-200 hover:bg-gray-300 p-2 rounded-full shadow-md z-10">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+
+
+        <!-- SECCIÓN 4: NAVEGACIÓN -->
+        <h2 class="text-2xl font-bold text-gray-800 mt-8 mb-3 border-b pb-2">Navegación:</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 p-2">
+            <a href="/calendario" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-blue-400 text-white">
+                <i class="fas fa-calendar-alt text-2xl mb-1"></i>
+                <span>Calendario</span>
+            </a>
+            <a href="/registros_importantes" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-purple-400 text-white">
+                <i class="fas fa-file-alt text-2xl mb-1"></i>
+                <span>Registros</span>
+            </a>
+            <a href="/alimentacion" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-yellow-400 text-white">
+                <i class="fas fa-utensils text-2xl mb-1"></i>
+                <span>Alimentación</span>
+            </a>
+            <a href="/documentacion" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-pink-400 text-white">
+                <i class="fas fa-folder-open text-2xl mb-1"></i>
+                <span>Documentos</span>
+            </a>
+            <a href="/gimnasio" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-red-400 text-white">
+                <i class="fas fa-dumbbell text-2xl mb-1"></i>
+                <span>Gimnasio</span>
+            </a>
+            <!-- Los botones de Citas, Lista Compra y Notas de la navegación han sido eliminados de aquí -->
+        </div>
+    </div>
+
+    <!-- Photo Capture Modal -->
+    <div id="cameraModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]" style="display:none;">
+        <div class="bg-white p-6 rounded-lg shadow-xl camera-modal-content">
+            <h3 class="text-xl font-bold mb-4 text-center">Tomar Foto</h3>
+            <video id="videoStream" class="camera-stream" autoplay playsinline></video>
+            <canvas id="photoCanvas" style="display:none;"></canvas>
+            <img id="photoPreview" class="photo-preview" style="display:none;">
+            <p id="cameraStatus" class="text-center text-sm text-gray-600 mb-4"></p>
+            <div class="flex justify-center flex-wrap gap-2 camera-actions">
+                <button id="capturePhotoButton" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full flex items-center space-x-2">
+                    <i class="fas fa-camera"></i> <span>Tomar Foto</span>
+                </button>
+                <button id="retakePhotoButton" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full flex items-center space-x-2" style="display:none;">
+                    <i class="fas fa-redo"></i> <span>Repetir</span>
+                </button>
+                <button id="confirmPhotoButton" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full flex items-center space-x-2" style="display:none;">
+                    <i class="fas fa-check"></i> <span>Confirmar</span>
+                </button>
+                <button id="closeCameraModalButton" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full flex items-center space-x-2">
+                    <i class="fas fa-times"></i> <span>Cerrar</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Alert/Confirm Modal HTML (GLOBAL) -->
+    <div id="customModalOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000]" style="display:none;">
+        <div class="bg-white p-6 rounded-lg shadow-xl custom-modal-content">
+            <h3 id="customModalTitle" class="text-xl font-bold mb-4 text-center"></h3>
+            <p id="customModalMessage" class="mb-6 text-gray-700 text-center"></p>
+            <div class="flex justify-center space-x-4" id="customModalActions">
+                <!-- Buttons will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for adding quick appointment from the Appointment button -->
+    <div id="quickCitaModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9998]" style="display:none;">
+        <div class="bg-white p-6 rounded-lg shadow-xl custom-modal-content scrollable-modal-content">
+            <h3 class="text-xl font-bold mb-4 text-center">Registrar Cita Rápida</h3>
+            <p id="quickCitaTextDisplay" class="mb-4 text-gray-700 text-center"></p>
+            <div class="mb-4">
+                <label for="quickCitaFechaInput" class="block text-gray-700 text-sm font-bold mb-2">Fecha de la Cita:</label>
+                <input type="date" id="quickCitaFechaInput" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div class="mb-6">
+                <label for="quickCitaHoraInput" class="block text-gray-700 text-sm font-bold mb-2">Hora (opcional):</label>
+                <input type="time" id="quickCitaHoraInput" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+
+            <!-- Requirements section for the quick appointment modal -->
+            <div class="mb-4 p-3 bg-blue-100 rounded-md">
+                <label for="quickCitaRequisitoInput" class="block text-gray-700 text-sm font-bold mb-2">Requisitos para la Cita (uno a uno):</label>
+                <div class="flex gap-2 mb-2">
+                    <input type="text" id="quickCitaRequisitoInput" placeholder="Ej. DNI, informes médicos" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <button type="button" id="quickAddRequisitoBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-all duration-200">Añadir</button>
+                </div>
+                <ul id="quickRequisitosListDisplay" class="list-disc list-inside text-gray-800 text-sm">
+                    <!-- Requirements added dynamically here -->
+                </ul>
+            </div>
+
+            <div class="flex justify-center space-x-4">
+                <button id="saveQuickCitaBtn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full">Guardar Cita</button>
+                <button id="cancelQuickCitaBtn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NEW: Modal for choosing entry type (Tarea, Rutina, Cita) -->
+    <div id="chooseEntryTypeModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9998]" style="display:none;">
+        <div class="bg-white p-6 rounded-lg shadow-xl custom-modal-content scrollable-modal-content max-w-lg">
+            <h3 class="text-xl font-bold mb-4 text-center" id="chooseEntryTypeModalTitle">Elegir Tipo de Actividad</h3>
+            <p id="activityTextDisplay" class="mb-4 text-gray-700 text-center"></p>
+
+            <input type="hidden" id="editEntryId"> <!-- Hidden input to store ID for editing -->
+
+            <div class="mb-4">
+                <label for="modalEntryType" class="block text-gray-700 text-sm font-bold mb-2">Tipo:</label>
+                <select id="modalEntryType" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <option value="tarea">Tarea</option>
+                    <option value="rutina">Rutina</option>
+                    <option value="cita">Cita</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label for="modalEntryText" class="block text-gray-700 text-sm font-bold mb-2">Descripción:</label>
+                <input type="text" id="modalEntryText" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+
+            <div class="mb-4 flex gap-4">
+                <div class="w-1/2">
+                    <label for="modalStartTimeInput" class="block text-gray-700 text-sm font-bold mb-2">Hora de Inicio (opcional):</label>
+                    <input type="time" id="modalStartTimeInput" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="w-1/2" id="modalEndTimeDiv">
+                    <label for="modalEndTimeInput" class="block text-gray-700 text-sm font-bold mb-2">Hora Fin (opcional):</label>
+                    <input type="time" id="modalEndTimeInput" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+            </div>
+
+            <!-- Routine Fields (within the new modal) -->
+            <div id="modalRoutineFields" class="mb-4" style="display: none;">
+                <div class="form-group day-selector">
+                    <p class="block text-gray-700 text-sm font-bold mb-2">Repetir los días:</p>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <label class="flex items-center"><input type="checkbox" name="modalRoutineDay" value="Domingo" class="form-checkbox"> <span>Domingo</span></label>
+                        <label class="flex items-center"><input type="checkbox" name="modalRoutineDay" value="Lunes" class="form-checkbox"> <span>Lunes</span></label>
+                        <label class="flex items-center"><input type="checkbox" name="modalRoutineDay" value="Martes" class="form-checkbox"> <span>Martes</span></label>
+                        <label class="flex items-center"><input type="checkbox" name="modalRoutineDay" value="Miércoles" class="form-checkbox"> <span>Miércoles</span></label>
+                        <label class="flex-items-center"><input type="checkbox" name="modalRoutineDay" value="Jueves" class="form-checkbox"> <span>Jueves</span></label>
+                        <label class="flex items-center"><input type="checkbox" name="modalRoutineDay" value="Viernes" class="form-checkbox"> <span>Viernes</span></label>
+                        <label class="flex items-center"><input type="checkbox" name="modalRoutineDay" value="Sábado" class="form-checkbox"> <span>Sábado</span></label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Task Date Fields (within the new modal) -->
+            <div id="modalTaskDateFields" class="mb-4" style="display: none;">
+                <label for="modalTaskFechaInput" class="block text-gray-700 text-sm font-bold mb-2">Fecha de la Tarea:</label>
+                <input type="date" id="modalTaskFechaInput" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+
+            <!-- Appointment Fields (within the new modal) -->
+            <div id="modalCitaFields" class="mb-4" style="display: none;">
+                <div class="form-group mb-4">
+                    <label for="modalCitaFechaInput" class="block text-gray-700 text-sm font-bold mb-2">Fecha de la Cita:</label>
+                    <input type="date" id="modalCitaFechaInput" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <!-- Requirements section for the main appointment modal -->
+                <div class="mb-4 p-3 bg-blue-100 rounded-md">
+                    <label for="modalCitaRequisitoInput" class="block text-gray-700 text-sm font-bold mb-2">Requisitos para la Cita (uno a uno):</label>
+                    <div class="flex gap-2 mb-2">
+                        <input type="text" id="modalCitaRequisitoInput" placeholder="Ej. DNI, informes médicos" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        <button type="button" id="modalAddRequisitoBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-all duration-200">Añadir</button>
+                    </div>
+                    <ul id="modalRequisitosListDisplay" class="list-disc list-inside text-gray-800 text-sm">
+                        <!-- Requirements added dynamically here -->
+                    </ul>
+                </div>
+            </div>
+
+            <div class="flex justify-center space-x-4">
+                <button id="saveModalEntryBtn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full">Guardar Actividad</button>
+                <button id="cancelModalEntryBtn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for deferring a task -->
+    <div id="deferTaskModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9998]" style="display:none;">
+        <div class="bg-white p-6 rounded-lg shadow-xl custom-modal-content max-w-lg">
+            <h3 class="text-xl font-bold mb-4 text-center">Aplazar Tarea</h3>
+            <p id="deferTaskTextDisplay" class="mb-4 text-gray-700 text-center"></p>
+            <input type="hidden" id="deferEntryId">
+            <div class="mb-4">
+                <label for="deferFechaInput" class="block text-gray-700 text-sm font-bold mb-2">Nueva Fecha Límite (opcional):</label>
+                <input type="date" id="deferFechaInput" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div class="mb-6">
+                <label for="deferHoraInput" class="block text-gray-700 text-sm font-bold mb-2">Nueva Hora Límite (opcional):</label>
+                <input type="time" id="deferHoraInput" class="shadow appearance-none border rounded w-full py-2 px-4 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div class="flex justify-center space-x-4">
+                <button id="confirmAplazarBtn" class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-full">Confirmar Aplazamiento</button>
+                <button id="cancelAplazarBtn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+
+   
+	<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/citas.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/add_activity.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/agenda_today.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/food_today.js') }}"></script>
+</body>
+</html>

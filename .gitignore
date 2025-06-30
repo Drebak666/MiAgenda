@@ -1,0 +1,21 @@
+# Ignorar directorios de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+env/
+venv/
+.venv/
+
+# Ignorar archivos específicos de Flask/SQLAlchemy
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos de logs
+*.log
+log/
+
+# Archivos de sistema operativos
+.DS_Store
+Thumbs.db

@@ -1,0 +1,283 @@
+/*
+ * Archivo: style.css
+ * Descripción: Estilos CSS para la aplicación "Mi Agenda".
+ *
+ * Este archivo contiene todos los estilos personalizados que complementan
+ * las clases de Tailwind CSS, organizados por secciones para facilitar
+ * su mantenimiento y comprensión.
+ */
+
+/* =====================================
+ * 1. Estilos Generales y Utilidades
+ * ===================================== */
+
+/* Estilos para las insignias de conteo en botones */
+.button-count, .button-nav-count {
+    position: absolute;
+    top: 0;
+    right: 0;
+    transform: translate(50%, -50%); /* Ajusta la posición de la insignia */
+    background-color: #ef4444; /* Tailwind Red */
+    color: white;
+    border-radius: 9999px; /* Para hacerlo circular */
+    padding: 0.25rem 0.625rem; /* px-2 py-1 */
+    font-size: 0.75rem; /* text-xs */
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem; /* Asegura que sea circular */
+    min-height: 1.5rem;
+    line-height: 1; /* Elimina espacio extra de línea */
+}
+
+/* Estilos de transición para botones de navegación o acción */
+.boton {
+    transition: all 0.2s ease-in-out;
+}
+.boton:hover {
+    transform: translateY(-2px); /* Efecto de "levantar" al pasar el ratón */
+}
+
+/* Estilos para elementos completados (tareas, citas, etc.) */
+.completed-item .entry-text,
+.completed-item .entry-time,
+.completed-item .time-left {
+    text-decoration: line-through; /* Tachado para indicar completado */
+    color: #888; /* Color gris */
+    opacity: 0.7; /* Ligeramente transparente */
+}
+.completed-item .btn-completar {
+    background-color: #28a745; /* Verde para el botón "Descompletar" */
+    color: white;
+}
+.entry-item .btn-completar { /* Estilo por defecto para el botón completar */
+    background-color: #007bff;
+    color: white;
+}
+
+/* Colores para el tiempo restante/pasado */
+.entry-item .time-left.pasada {
+    color: #888; /* Gris para indicar que el tiempo ha pasado */
+    font-style: italic;
+}
+.entry-item .time-left.vencida {
+    color: #dc3545; /* Rojo para indicar que está vencida/atrasada */
+}
+
+/* Estilos compactos para botones de acción en listas de tareas/rutinas/comidas */
+.entry-actions .btn-compact,
+.cita-actions .btn-compact,
+.meal-actions .btn-compact {
+    padding: 0.5rem; /* Relleno reducido para botones más pequeños */
+    width: 2.5rem; /* Ancho fijo para hacerlos cuadrados/redondos */
+    height: 2.5rem; /* Alto fijo */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px; /* Para hacerlos redondos */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.2s ease-in-out;
+}
+
+.entry-actions .btn-compact:hover,
+.cita-actions .btn-compact:hover,
+.meal-actions .btn-compact:hover {
+    box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+    transform: translateY(-1px); /* Efecto de "levantar" al pasar el ratón */
+}
+
+.entry-actions .btn-compact i,
+.cita-actions .btn-compact i,
+.meal-actions .btn-compact i {
+    font-size: 1.1rem; /* Ajusta el tamaño del icono */
+}
+
+
+/* =====================================
+ * 2. Estilos Específicos para Citas
+ * ===================================== */
+
+.cita-item {
+    background-color: #e0f7fa; /* Azul claro para resaltar */
+    border-left: 5px solid #00acc1; /* Borde izquierdo de color turquesa */
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column; /* Diseño en columna por defecto para móviles */
+    justify-content: space-between;
+    align-items: flex-start; /* Alineado a la izquierda en columna */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    position: relative;
+}
+@media (min-width: 640px) { /* Para pantallas más grandes, vuelve a diseño en fila */
+    .cita-item {
+        flex-direction: row;
+        align-items: center;
+    }
+}
+.cita-item.completada {
+    background-color: #f0f4c3; /* Verde claro para citas completadas */
+    border-left-color: #8bc34a;
+}
+.cita-item .entry-text {
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 5px; /* Espacio entre texto e información en móviles */
+}
+.cita-item .cita-info {
+    font-size: 0.9em;
+    color: #555;
+}
+.cita-item .dias-restantes {
+    font-weight: bold;
+    color: #007bff;
+    margin-top: 5px; /* Espacio para móviles */
+    margin-left: 0; /* Reinicia margen izquierdo en móviles */
+}
+@media (min-width: 640px) {
+    .cita-item .dias-restantes {
+        margin-top: 0;
+        margin-left: 10px; /* Margen para pantallas más grandes */
+    }
+}
+.cita-item.completada .dias-restantes {
+     color: #888; /* Gris para días restantes de citas completadas */
+}
+
+/* Botón para mostrar/ocultar requisitos de cita */
+.requisitos-toggle-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #00acc1; /* Color similar al borde de la cita */
+    font-size: 1.2rem;
+    padding: 5px;
+    border-radius: 50%;
+    transition: all 0.2s ease-in-out;
+}
+.requisitos-toggle-btn:hover {
+    background-color: #b2ebf2; /* Efecto de hover claro */
+}
+
+/* Contenedor de requisitos de cita */
+.requisitos-container {
+    width: 100%; /* Asegura que ocupe todo el ancho debajo de la línea principal */
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #b2ebf2; /* Borde superior punteado ligero */
+}
+.requisitos-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+    font-size: 0.9em;
+    color: #4a5568;
+}
+.requisitos-item input[type="checkbox"] {
+    margin-right: 8px;
+    transform: scale(1.2);
+    accent-color: #00acc1; /* Color del checkbox */
+}
+.requisitos-item.checked span {
+    text-decoration: line-through;
+    color: #888;
+}
+
+/* Contenedor de botones de acción de cita */
+.cita-actions {
+    display: flex;
+    flex-wrap: wrap; /* Permite que los botones se envuelvan si el espacio es limitado */
+    gap: 8px; /* Pequeño espacio entre botones */
+    margin-top: 10px; /* Espacio para móviles */
+    width: auto; /* Permite que el contenido dicte el ancho */
+    justify-content: flex-end; /* Alineación a la derecha */
+}
+@media (min-width: 640px) {
+    .cita-actions {
+        margin-top: 0;
+        margin-left: auto; /* Empuja a la derecha en pantallas más grandes */
+    }
+}
+
+/* =====================================
+ * 3. Estilos para la Sección "Comida de Hoy"
+ * ===================================== */
+
+.today-meal-card {
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    padding: 15px;
+    margin-bottom: 15px; /* Espacio entre tipos de comida */
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+.today-meal-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+.today-meal-card h4 {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #2d3748;
+    margin-bottom: 10px;
+}
+.today-meal-card p {
+    color: #4a5568;
+    font-size: 0.95rem;
+    margin-bottom: 5px;
+}
+.today-meal-card p strong {
+    color: #2d3748;
+}
+.today-meal-card .recipe-info {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #e2e8f0;
+    font-size: 0.85rem;
+    color: #2d3748;
+    text-align: left;
+}
+.today-meal-card .recipe-info ul {
+    list-style: disc;
+    padding-left: 20px;
+}
+.today-meal-card .recipe-info strong {
+    color: #c05621; /* Naranja para énfasis */
+}
+
+/* =====================================
+ * 4. Estilos para Modales (Pop-ups)
+ * ===================================== */
+
+/* Contenido de modal de cámara */
+.camera-modal-content {
+    max-width: 700px;
+}
+.camera-stream {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    background-color: #000;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+.photo-preview {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+.camera-actions button {
+    margin: 5px;
+}
+
+/* Estilos para contenido de modal con scroll */
+.scrollable-modal-content {
+    max-height: 90vh; /* 90% de la altura de la ventana */
+    overflow-y: auto; /* Habilita scroll vertical si el contenido excede la altura */
+    padding-bottom: 1rem; /* Espacio extra en la parte inferior para que el contenido no se pegue al borde */
+}
+

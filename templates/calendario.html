@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendario - Mi Agenda</title>
+    <!-- Favicon para el icono del acceso directo en móvil -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/agenda_icon.png') }}">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" xintegrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Estilos personalizados para el calendario y panel de detalles */
+        .boton {
+            transition: all 0.2s ease-in-out;
+        }
+        .boton:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Estilos de la cámara */
+        .camera-modal-content {
+            max-width: 700px;
+            /* Se ha añadido/modificado para permitir el desplazamiento en pantallas pequeñas */
+            max-height: 90vh; /* Limita la altura al 90% del alto de la ventana */
+            overflow-y: auto; /* Permite desplazamiento vertical si el contenido excede max-height */
+            margin: 20px auto; /* Ajusta el margen para dar más espacio vertical */
+        }
+        .camera-stream {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            background-color: #000;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .photo-preview {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .camera-actions button {
+            margin: 5px;
+        }
+
+        /* Nuevos estilos para ítems completados (aplicables a tareas, citas) */
+        .completed-item .entry-text,
+        .completed-item .entry-time,
+        .completed-item .time-left {
+            text-decoration: line-through;
+            color: #888;
+            opacity: 0.7;
+        }
+        .completed-item .btn-completar {
+            background-color: #28a745; /* Color verde para "Descompletar" */
+            color: white;
+        }
+        .entry-item .btn-completar { /* Estilo para el botón de completar por defecto */
+            background-color: #007bff;
+            color: white;
+        }
+        /* Color para ítems con tiempo pasado (no completados) */
+        .entry-item .time-left.pasada {
+            color: #888; /* Gris para indicar que ha pasado la hora */
+            font-style: italic;
+        }
+        .entry-item .time-left.vencida {
+            color: #dc3545; /* Rojo para vencida (solo tareas) */
+        }
+
+        /* Estilos específicos para Citas */
+        .cita-item {
+            background-color: #e0f7fa; /* Un azul claro para destacar */
+            border-left: 5px solid #00acc1;
+        }
+        /* Asegurarse de que el estilo de completado se aplica */
+        .cita-item.completed-item {
+            background-color: #f0f4c3; /* Un verde claro para citas completadas */
+            border-left-color: #8bc34a;
+        }
+
+        /* Estilo para días con citas en el calendario */
+        .calendar-body .day.has-citas::after {
+            content: "\f073"; /* Icono de calendario de FontAwesome */
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            font-size: 0.7em;
+            color: #00acc1; /* Color azul para el icono de cita */
+        }
+
+        /* Estilo para los días con tareas */
+        .calendar-body .day.has-tasks::after {
+            content: '';
+            position: absolute;
+            bottom: 5px; /* Ajusta la posición del punto */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6px;
+            height: 6px;
+            background-color: #3b82f6; /* Color azul para indicar tareas */
+            border-radius: 50%;
+        }
+
+        /* Estilo para el botón "Hoy" flotante */
+        .today-button-float {
+            position: fixed; /* O 'absolute' si está dentro de un contenedor con position:relative */
+            top: 20px; /* Distancia desde la parte superior */
+            right: 20px; /* Distancia desde la derecha */
+            z-index: 1000; /* Asegura que esté por encima de otros elementos */
+            /* Agrega estilos de botón si no los tiene ya */
+            background-color: #1A73E8; /* Color de ejemplo */
+            color: white;
+            padding: 10px 15px;
+            border-radius: 9999px; /* Para hacerlo redondo/pill-shaped */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        .today-button-float:hover {
+            background-color: #0c5bbf; /* Color más oscuro al pasar el ratón */
+            transform: translateY(-2px);
+        }
+
+        /* Clases para el efecto de sombra en hover de los días */
+        .day-cell:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .no-records-message {
+            color: #ef4444; /* Rojo */
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans antialiased">
+    <div class="max-w-4xl mx-auto p-4 bg-white shadow-lg rounded-lg mt-6">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Mi Calendario</h1>
+
+        <div class="calendar-container bg-blue-50 p-4 rounded-lg shadow-inner mb-6">
+            <div class="calendar-header flex flex-col sm:flex-row justify-between items-center mb-4 space-y-2 sm:space-y-0">
+                <div class="month-navigation flex items-center space-x-3">
+                    <button id="prevMonth" class="nav-btn bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-full transition-colors duration-200"><i class="fas fa-chevron-left"></i></button>
+                    <h2 id="currentMonthYear" class="text-xl font-semibold text-gray-800"></h2>
+                    <button id="nextMonth" class="nav-btn bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-3 rounded-full transition-colors duration-200"><i class="fas fa-chevron-right"></i></button>
+                </div>
+                <div class="year-selection flex items-center space-x-3">
+                    <select id="yearSelect" class="shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        <!-- Años se llenarán con JS -->
+                    </select>
+                    <!-- El botón "Hoy" se moverá con CSS para ser flotante -->
+                </div>
+            </div>
+
+            <div class="calendar-body grid grid-cols-7 gap-1 text-center" id="calendarBody">
+                <div class="day-name font-bold text-gray-700 p-2">Dom</div>
+                <div class="day-name font-bold text-gray-700 p-2">Lun</div>
+                <div class="day-name font-bold text-gray-700 p-2">Mar</div>
+                <div class="day-name font-bold text-gray-700 p-2">Mié</div>
+                <div class="day-name font-bold text-gray-700 p-2">Jue</div>
+                <div class="day-name font-bold text-gray-700 p-2">Vie</div>
+                <div class="day-name font-bold text-gray-700 p-2">Sáb</div>
+                <!-- Los días se generarán aquí por JavaScript -->
+            </div>
+        </div>
+
+        <!-- Panel para detalles del día -->
+        <div id="dayDetailsPanel" class="day-details-panel bg-white p-4 rounded-lg shadow mb-6">
+            <h3 id="panelDate" class="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Selecciona un día para ver los detalles</h3>
+            <div id="panelContent">
+                <h4 class="text-lg font-semibold text-gray-700 mb-2">Actividades del día:</h4>
+                <ul id="panelActivitiesList" class="space-y-2">
+                    <!-- Actividades se cargarán aquí -->
+                </ul>
+            </div>
+
+            <!-- Formulario Unificado para Tareas y Rutinas en el día seleccionado -->
+            <form id="unifiedEntryForm" class="task-form-container p-4 bg-blue-50 rounded-lg shadow-inner mt-6">
+                <h4 class="form-title text-lg font-semibold text-gray-700 mb-3">Añadir al día seleccionado:</h4>
+                <div class="mb-4">
+                    <label for="entryType" class="block text-gray-700 text-sm font-bold mb-2">Tipo:</label>
+                    <select id="entryType" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        <option value="tarea">Tarea</option>
+                        <option value="cita">Cita</option>
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label for="entryTextInput" id="entryTextLabel" class="block text-gray-700 text-sm font-bold mb-2">Descripción:</label>
+                    <input type="text" id="entryTextInput" placeholder="Añadir una nueva tarea o cita..." required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+
+                <div class="mb-4">
+                    <label for="entryTimeInput" id="entryTimeInputLabel" class="block text-gray-700 text-sm font-bold mb-2">Hora:</label>
+                    <input type="time" id="entryTimeInput" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+
+                <!-- Campos de Rutina (inicialmente ocultos y ahora no utilizados para creación) -->
+                <div id="routineFields" class="mb-4" style="display: none;">
+                    <div class="form-group day-selector">
+                        <p class="block text-gray-700 text-sm font-bold mb-2">Repetir los días (solo para crear nuevas rutinas globales):</p>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <label class="flex items-center"><input type="checkbox" name="routineDay" value="Lunes" class="form-checkbox mr-2 rounded"> <span>Lunes</span></label>
+                            <label class="flex items-center"><input type="checkbox" name="routineDay" value="Martes" class="form-checkbox mr-2 rounded"> <span>Martes</span></label>
+                            <label class="flex items-center"><input type="checkbox" name="routineDay" value="Miércoles" class="form-checkbox mr-2 rounded"> <span>Miércoles</span></label>
+                            <label class="flex items-center"><input type="checkbox" name="routineDay" value="Jueves" class="form-checkbox mr-2 rounded"> <span>Jueves</span></label>
+                            <label class="flex items-center"><input type="checkbox" name="routineDay" value="Viernes" class="form-checkbox mr-2 rounded"> <span>Viernes</span></label>
+                            <label class="flex items-center"><input type="checkbox" name="routineDay" value="Sábado" class="form-checkbox mr-2 rounded"> <span>Sábado</span></label>
+                            <label class="flex items-center"><input type="checkbox" name="routineDay" value="Domingo" class="form-checkbox mr-2 rounded"> <span>Domingo</span></label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Campos de Cita (inicialmente ocultos) -->
+                <div id="citaFields" style="display: none;">
+                    <!-- La fecha de la cita será el día seleccionado, no se necesita un input adicional aquí. -->
+                </div>
+
+                <button type="submit" class="boton bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg w-full transition-colors duration-200">Guardar en este día</button>
+            </form>
+        </div>
+
+        <div class="navigation grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 p-2">
+            <a href="/" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-blue-400 text-white">
+                <i class="fas fa-home text-2xl mb-1"></i>
+                <span>Volver al Inicio</span>
+            </a>
+            <a href="/alimentacion" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-yellow-400 text-white">
+                <i class="fas fa-utensils text-2xl mb-1"></i>
+                <span>Alimentación</span>
+            </a>
+            <a href="/documentacion" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-pink-400 text-white">
+                <i class="fas fa-folder-open text-2xl mb-1"></i>
+                <span>Documentos</span>
+            </a>
+            <a href="/gimnasio" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-red-400 text-white">
+                <i class="fas fa-dumbbell text-2xl mb-1"></i>
+                <span>Gimnasio</span>
+            </a>
+            <a href="/lista" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-orange-400 text-white">
+                <i class="fas fa-shopping-cart text-2xl mb-1"></i>
+                <span>Lista de Compra</span>
+            </a>
+            <a href="/citas" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-teal-400 text-white">
+                <i class="fas fa-calendar-check text-2xl mb-1"></i>
+                <span>Citas</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Botón "Hoy" flotante - Fuera del contenedor principal para posicionamiento fijo -->
+    <button id="todayButton" class="today-button-float flex items-center space-x-2">
+        <i class="fas fa-calendar-day"></i>
+        <span>Hoy</span>
+    </button>
+
+    <!-- Modal para Captura de Foto -->
+    <div id="cameraModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]" style="display:none;">
+        <div class="bg-white p-6 rounded-lg shadow-xl camera-modal-content">
+            <h3 class="text-xl font-bold mb-4 text-center">Tomar Foto</h3>
+            <video id="videoStream" class="camera-stream" autoplay playsinline></video>
+            <canvas id="photoCanvas" style="display:none;"></canvas>
+            <img id="photoPreview" class="photo-preview" style="display:none;">
+            <p id="cameraStatus" class="text-center text-sm text-gray-600 mb-4"></p>
+            <div class="flex justify-center flex-wrap gap-2 camera-actions">
+                <button id="capturePhotoButton" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full flex items-center space-x-2">
+                    <i class="fas fa-camera"></i> <span>Tomar Foto</span>
+                </button>
+                <button id="retakePhotoButton" class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full flex items-center space-x-2" style="display:none;">
+                    <i class="fas fa-redo"></i> <span>Repetir</span>
+                </button>
+                <button id="confirmPhotoButton" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full flex items-center space-x-2" style="display:none;">
+                    <i class="fas fa-check"></i> <span>Confirmar</span>
+                </button>
+                <button id="closeCameraModalButton" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full flex items-center space-x-2">
+                    <i class="fas fa-times"></i> <span>Cerrar</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Alert/Confirm Modal HTML (GLOBAL) -->
+    <div id="customModalOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10000]" style="display:none;">
+        <div class="bg-white p-6 rounded-lg shadow-xl custom-modal-content">
+            <h3 id="customModalTitle" class="text-xl font-bold mb-4 text-center"></h3>
+            <p id="customModalMessage" class="mb-6 text-gray-700 text-center"></p>
+            <div class="flex justify-center space-x-4" id="customModalActions">
+                <!-- Buttons will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const calendarBody = document.getElementById('calendarBody');
+        const currentMonthYear = document.getElementById('currentMonthYear');
+        const prevMonthBtn = document.getElementById('prevMonth');
+        const nextMonthBtn = document.getElementById('nextMonth');
+        const yearSelect = document.getElementById('yearSelect');
+        const todayButton = document.getElementById('todayButton');
+
+        // Referencias al nuevo panel de detalles
+        const dayDetailsPanel = document.getElementById('dayDetailsPanel');
+        const panelDateElem = document.getElementById('panelDate');
+        const panelActivitiesList = document.getElementById('panelActivitiesList'); // Renombrado a panelActivitiesList
+
+        // Referencias a los elementos del formulario
+        const unifiedEntryForm = document.getElementById('unifiedEntryForm');
+        const entryTypeSelect = document.getElementById('entryType');
+        const entryTextInput = document.getElementById('entryTextInput');
+        const entryTextLabel = document.getElementById('entryTextLabel');
+        const entryTimeInput = document.getElementById('entryTimeInput');
+        const entryTimeInputLabel = document.getElementById('entryTimeInputLabel'); // Renamed to avoid conflict
+        const routineFieldsDiv = document.getElementById('routineFields'); // Still exists but not used for creation
+        const routineDayCheckboxes = document.querySelectorAll('input[name="routineDay"]');
+        const citaFieldsDiv = document.getElementById('citaFields'); // Campos de cita
+
+        let currentYear, currentMonth; // 0-indexed month
+        let selectedDayFormattedDate = null; // Para rastrear el día seleccionado y usarlo en el formulario
+
+        // Variables para almacenar días con actividades
+        let daysWithTasks = [];
+        let daysWithCitas = []; // Para almacenar días con citas
+
+        // Variable para el intervalo de actualización de tiempo restante
+        let timeLeftUpdateInterval;
+
+        const dayNameToNumber = {
+            'Domingo': 0, 'Lunes': 1, 'Martes': 2, 'Miércoles': 3, 'Jueves': 4, 'Viernes': 5, 'Sábado': 6
+        };
+        const dayNumberToName = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
+        // --- Camera elements and variables ---
+        const cameraModal = document.getElementById('cameraModal');
+        const videoStream = document.getElementById('videoStream');
+        const photoCanvas = document.getElementById('photoCanvas');
+        const photoPreview = document.getElementById('photoPreview');
+        const capturePhotoButton = document.getElementById('capturePhotoButton');
+        const retakePhotoButton = document.getElementById('retakePhotoButton');
+        const confirmPhotoButton = document.getElementById('confirmPhotoButton');
+        const closeCameraModalButton = document.getElementById('closeCameraModalButton');
+        const cameraStatus = document.getElementById('cameraStatus');
+
+        let currentStream;
+        let capturedImageBase64 = null; // To store the Base64 image
+        let currentFileName = null; // Variable para almacenar el nombre del archivo
+        let currentMimeType = null; // Variable para almacenar el tipo MIME
+        let currentRegistroPhotoPreviewElement = null; // To reference the <img> tag in the saveRegistro modal
+
+
+        // --- NEW: Set to store completed routine IDs for the CURRENTLY SELECTED DAY (retrieved from backend) ---
+        // This is still needed for displaying routines that might already be in the backend for the selected day,
+        // even if new routine creation is disabled.
+        let completedRoutineIdsForSelectedDay = new Set();
+
+
+        function formatFecha(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        async function fetchDaysWithActivities() {
+            try {
+                const tasksPromise = fetch(`/api/tareas/dias_con_tareas/${currentYear}/${currentMonth + 1}`);
+                // Fetch all citas for the displayed month and all future ones
+                const citasPromise = fetch(`/api/citas/proximas/${currentYear}/${currentMonth + 1}`); 
+
+                const [tasksResponse, citasResponse] = await Promise.all([tasksPromise, citasPromise]); 
+
+                if (tasksResponse.ok) {
+                    daysWithTasks = await tasksResponse.json();
+                    console.log('Días con tareas (fetch):', daysWithTasks); // DEBUG
+                } else {
+                    const errorText = await tasksResponse.text(); // Capturar el texto del error
+                    console.error('Error al obtener días con tareas:', errorText);
+                    daysWithTasks = [];
+                }
+
+                if (citasResponse.ok) {
+                    const allUpcomingCitas = await citasResponse.json();
+                    // Filter citas to only include those strictly within the current month being rendered
+                    const monthStartDate = new Date(currentYear, currentMonth, 1);
+                    const monthEndDate = new Date(currentYear, currentMonth + 1, 0); // Last day of current month
+
+                    daysWithCitas = allUpcomingCitas
+                                    .filter(cita => {
+                                        const citaDate = new Date(cita.fecha);
+                                        return citaDate >= monthStartDate && citaDate <= monthEndDate;
+                                    })
+                                    .map(cita => cita.fecha);
+                    // Ensure unique dates in case multiple citas fall on the same day
+                    daysWithCitas = Array.from(new Set(daysWithCitas));
+                    console.log('Días con citas (fetch):', daysWithCitas); // DEBUG
+
+                } else {
+                    const errorText = await citasResponse.text(); // Capturar el texto del error
+                    console.error('Error al obtener días con citas:', errorText);
+                    daysWithCitas = [];
+                }
+
+            } catch (error) {
+                console.error('Error general al obtener días con actividades:', error);
+                daysWithTasks = [];
+                daysWithCitas = [];
+            }
+        }
+
+        async function renderCalendar() {
+            calendarBody.querySelectorAll('.day').forEach(day => day.remove()); // Limpiar días anteriores
+
+            const firstDay = new Date(currentYear, currentMonth, 1);
+            const lastDay = new Date(currentYear, currentMonth + 1, 0); // Correctly gets last day (e.g., 31 for Jan, Mar, May, Jul, Aug, Oct, Dec; 28/29 for Feb)
+            const numDaysInMonth = lastDay.getDate();
+
+            const firstDayIndex = firstDay.getDay(); // 0 for Sunday, 1 for Monday, etc.
+
+            // Rellenar días vacíos al principio del mes
+            for (let i = 0; i < firstDayIndex; i++) {
+                const emptyDay = document.createElement('div');
+                emptyDay.classList.add('day', 'empty', 'p-2', 'bg-gray-200', 'rounded-lg');
+                calendarBody.appendChild(emptyDay);
+            }
+
+            await fetchDaysWithActivities(); // Obtener días con actividades antes de renderizar
+
+            // Rellenar días del mes
+            for (let i = 1; i <= numDaysInMonth; i++) {
+                const dayDiv = document.createElement('div');
+                dayDiv.classList.add('day', 'p-2', 'relative', 'bg-white', 'rounded-lg', 'shadow-sm', 'flex', 'flex-col', 'items-center', 'justify-center', 'cursor-pointer', 'hover:bg-blue-100', 'transition-colors', 'duration-150');
+                dayDiv.textContent = i;
+
+                const dayDate = new Date(currentYear, currentMonth, i);
+                const formattedDayDate = formatFecha(dayDate);
+
+                // DEBUG: Log the formatted date and check if it's in daysWithTasks
+                console.log(`Día: ${formattedDayDate}, ¿Tiene tareas? ${daysWithTasks.includes(formattedDayDate)}`);
+
+                // Marcar si es hoy
+                const today = new Date();
+                if (dayDate.getDate() === today.getDate() &&
+                    dayDate.getMonth() === today.getMonth() &&
+                    dayDate.getFullYear() === today.getFullYear()) {
+                    dayDiv.classList.add('today', 'border-2', 'border-blue-500', 'font-bold');
+                }
+
+                // Marcar día seleccionado
+                if (formattedDayDate === selectedDayFormattedDate) {
+                    dayDiv.classList.add('selected', 'bg-blue-200', 'border-blue-700', 'shadow-md');
+                }
+
+                // Marcar días con tareas (ahora usa la clase has-tasks y el pseudo-elemento CSS)
+                if (daysWithTasks.includes(formattedDayDate)) {
+                    dayDiv.classList.add('has-tasks');
+                    // DEBUG: Añadir un indicador visible directamente para depuración, si el ::after no funciona
+                    const debugTaskIndicator = document.createElement('span');
+                    debugTaskIndicator.classList.add('absolute', 'top-0', 'right-0', 'text-xs', 'font-bold', 'text-red-500');
+                    debugTaskIndicator.textContent = '●'; // Un pequeño círculo rojo
+                    dayDiv.appendChild(debugTaskIndicator);
+                }
+                
+                // Marcar días con citas (con icono, como se definió en el <style>)
+                if (daysWithCitas.includes(formattedDayDate)) {
+                    dayDiv.classList.add('has-citas');
+                }
+
+                dayDiv.addEventListener('click', () => {
+                    // Remover clase 'selected' del día previamente seleccionado
+                    const prevSelectedDay = document.querySelector('.day.selected');
+                    if (prevSelectedDay) {
+                        prevSelectedDay.classList.remove('selected', 'bg-blue-200', 'border-blue-700', 'shadow-md');
+                    }
+                    // Añadir clase 'selected' al día clickeado
+                    dayDiv.classList.add('selected', 'bg-blue-200', 'border-blue-700', 'shadow-md');
+                    selectedDayFormattedDate = formattedDayDate; // Actualizar día seleccionado
+                    showDayDetails(formattedDayDate);
+                });
+                calendarBody.appendChild(dayDiv);
+            }
+
+            currentMonthYear.textContent = new Date(currentYear, currentMonth).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+
+            // Si hay un día seleccionado, recargar sus detalles después de renderizar el calendario
+            if (selectedDayFormattedDate) {
+                showDayDetails(selectedDayFormattedDate);
+            } else {
+                // Mostrar mensaje inicial si no hay día seleccionado
+                panelDateElem.textContent = 'Selecciona un día para ver los detalles';
+                panelActivitiesList.innerHTML = '';
+                // También reinicia el formulario si no hay día seleccionado
+                resetFormAndPanel();
+                if (timeLeftUpdateInterval) {
+                    clearInterval(timeLeftUpdateInterval);
+                    timeLeftUpdateInterval = null;
+                }
+            }
+        }
+
+        async function showDayDetails(date) {
+            selectedDayFormattedDate = date; // Asegurar que el día seleccionado esté actualizado para el formulario
+            panelDateElem.textContent = new Date(date).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            panelActivitiesList.innerHTML = '<li class="text-gray-500 italic">Cargando actividades...</li>'; // Texto unificado
+            
+            // Scroll al panel de detalles para asegurar visibilidad en móviles
+            dayDetailsPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            try {
+                // Fetch de Tareas
+                const tasksResponse = await fetch(`/api/tareas/${date}`);
+                if (!tasksResponse.ok) throw new Error('Error al cargar tareas.');
+                const tasks = await tasksResponse.json();
+
+                // Fetch de Rutinas (filtramos por el día de la semana de la fecha seleccionada)
+                // Aunque no se crean nuevas rutinas desde aquí, se pueden mostrar las existentes
+                const routinesResponse = await fetch('/api/rutinas');
+                if (!routinesResponse.ok) throw new Error('Error al cargar rutinas.');
+                const allRoutines = await routinesResponse.json();
+                
+                const selectedDayOfWeek = new Date(date).getDay(); // 0 for Sunday, 1 for Monday...
+                const routinesForSelectedDay = allRoutines.filter(routine => 
+                    routine.dias && Array.isArray(routine.dias) && routine.dias.includes(selectedDayOfWeek)
+                );
+
+                // Fetch de Citas para el día seleccionado
+                const citasResponse = await fetch(`/api/citas/${date}`); // Usamos la nueva API para citas por fecha
+                if (!citasResponse.ok) throw new Error('Error al cargar citas.');
+                const citas = await citasResponse.json();
+
+
+                // Fetch completed routines for the selected day from backend
+                const completedRoutinesResponse = await fetch(`/api/rutinas/completadas_por_dia/${date}`);
+                if (!completedRoutinesResponse.ok) throw new Error('Error al cargar rutinas completadas.');
+                const completedRoutineIds = await completedRoutinesResponse.json();
+                completedRoutineIdsForSelectedDay = new Set(completedRoutineIds);
+
+                renderDayDetailsContent(tasks, routinesForSelectedDay, citas, date); // Pasar citas a la función de renderizado
+            } catch (error) {
+                console.error('Error al obtener detalles del día:', error);
+                panelActivitiesList.innerHTML = `<li class="text-red-500 italic">Error al cargar actividades: ${error.message}</li>`;
+            }
+        }
+
+        // Helper para obtener el objeto Date de un momento específico para la ordenación
+        const getMoment = (dateStr, timeStr) => {
+            if (!timeStr) return null; // Si no hay hora, no hay momento específico
+            const [h, m] = timeStr.split(':').map(Number);
+            const [y, M, d] = dateStr.split('-').map(Number);
+            // Month is 0-indexed in JavaScript Date
+            return new Date(y, M - 1, d, h, m, 0); 
+        };
+
+        function renderDayDetailsContent(tasks, routines, citas, currentDateString) {
+            panelActivitiesList.innerHTML = ''; // Limpiamos la única lista
+
+            const combinedActivities = [
+                ...tasks.map(task => ({
+                    ...task,
+                    type: 'tarea',
+                    displayText: task.texto, 
+                    displayTime: task.hora   
+                })),
+                ...routines.map(routine => ({
+                    ...routine,
+                    type: 'rutina',
+                    displayText: routine.nombre,
+                    displayTime: routine.hora
+                })),
+                ...citas.map(cita => ({ // Añadir citas a las actividades combinadas
+                    ...cita,
+                    type: 'cita',
+                    displayText: cita.nombre,
+                    displayTime: cita.hora
+                }))
+            ];
+
+            combinedActivities.sort((a, b) => {
+                const now = new Date();
+                // Check completion status for each type
+                const isACompleted = (a.type === 'tarea' && a.completada) || 
+                                     (a.type === 'rutina' && completedRoutineIdsForSelectedDay.has(a.id)) ||
+                                     (a.type === 'cita' && a.completada); // Check cita.completada
+                
+                const isBCompleted = (b.type === 'tarea' && b.completada) || 
+                                     (b.type === 'rutina' && completedRoutineIdsForSelectedDay.has(b.id)) ||
+                                     (b.type === 'cita' && b.completada); // Check cita.completada
+
+                const aMoment = getMoment(currentDateString, a.displayTime);
+                const bMoment = getMoment(currentDateString, b.displayTime);
+
+                let priorityA, priorityB;
+
+                if (isACompleted) {
+                    priorityA = 3; 
+                } else if (aMoment && aMoment < now) { 
+                    priorityA = 2;
+                } else { 
+                    priorityA = 1;
+                }
+
+                if (isBCompleted) {
+                    priorityB = 3;
+                } else if (bMoment && bMoment < now) { 
+                    priorityB = 2;
+                } else { 
+                    priorityB = 1;
+                }
+
+                if (priorityA !== priorityB) {
+                    return priorityA - priorityB;
+                }
+
+                // CORRECCIÓN: Usar a.displayTime y b.displayTime en lugar de 'activity.displayTime'
+                const timeA = a.displayTime || '24:00'; 
+                const timeB = b.displayTime || '24:00'; 
+                return timeA.localeCompare(timeB);
+            });
+
+
+            if (combinedActivities.length === 0) {
+                panelActivitiesList.innerHTML = '<li class="text-gray-500 italic">No hay actividades programadas para este día.</li>';
+            } else {
+                combinedActivities.forEach(activity => {
+                    const li = document.createElement('li');
+                    li.classList.add('entry-item', 'bg-white', 'p-3', 'rounded-lg', 'shadow-sm', 'flex', 'flex-col', 'md:flex-row', 'md:items-center', 'justify-between', 'space-y-2', 'md:space-y-0'); 
+                    // Añadir clase específica para cada tipo si es necesario para estilos futuros
+                    if (activity.type === 'tarea') {
+                        li.classList.add('task-item');
+                    } else if (activity.type === 'rutina') {
+                        li.classList.add('routine-item');
+                    } else if (activity.type === 'cita') {
+                        li.classList.add('cita-item');
+                    }
+
+                    const contentDiv = document.createElement('div');
+                    contentDiv.classList.add('flex-grow'); 
+
+                    const textSpan = document.createElement('span');
+                    textSpan.classList.add('entry-text', 'font-semibold', 'text-gray-800');
+                    const formattedTime = activity.displayTime ? activity.displayTime.substring(0, 5) : ''; 
+                    const horaPrefix = formattedTime ? `<span class="entry-time text-gray-500 text-sm">${formattedTime}</span> - ` : '';
+                    textSpan.innerHTML = `${horaPrefix}${activity.displayText}`;
+                    
+                    // Aplicar clase de completado general
+                    let isActivityCompleted = false;
+                    if (activity.type === 'tarea' && activity.completada) {
+                        isActivityCompleted = true;
+                    } else if (activity.type === 'rutina' && completedRoutineIdsForSelectedDay.has(activity.id)) {
+                        isActivityCompleted = true;
+                    } else if (activity.type === 'cita' && activity.completada) { // Check completada para citas
+                        isActivityCompleted = true;
+                    }
+
+                    if (isActivityCompleted) {
+                        li.classList.add('completed-item');
+                        textSpan.classList.add('completada'); // Mantener para compatibilidad con CSS existente
+                    }
+
+
+                    const timeLeftSpan = document.createElement('span');
+                    timeLeftSpan.classList.add('time-left', 'ml-2', 'text-sm');
+                    timeLeftSpan.dataset.taskId = (activity.type === 'tarea') ? activity.id : 
+                                                    (activity.type === 'rutina' ? `routine-cal-${activity.id}` : `cita-cal-${activity.id}`); // ID para citas
+                    timeLeftSpan.dataset.taskDate = currentDateString; 
+                    timeLeftSpan.dataset.taskTime = activity.displayTime || '';
+                    
+                    contentDiv.appendChild(textSpan);
+                    contentDiv.appendChild(timeLeftSpan);
+                    li.appendChild(contentDiv);
+
+                    // Add action buttons
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.classList.add('entry-actions', 'flex', 'flex-wrap', 'gap-2', 'mt-2', 'md:mt-0', 'md:ml-4', 'justify-end');
+
+                    // Delete Button for all types
+                    const deleteButton = document.createElement('button');
+                    deleteButton.classList.add('btn-eliminar', 'bg-red-500', 'hover:bg-red-700', 'text-white', 'py-1', 'px-3', 'rounded', 'text-sm', 'flex', 'items-center', 'space-x-1');
+                    deleteButton.innerHTML = '<i class="fas fa-trash-alt"></i> Eliminar';
+                    deleteButton.addEventListener('click', () => deleteActivity(activity.type, activity.id));
+                    actionsDiv.appendChild(deleteButton);
+
+                    // Specific buttons per type
+                    if (activity.type === 'tarea') {
+                        const postponeButton = document.createElement('button');
+                        postponeButton.classList.add('boton', 'bg-yellow-500', 'hover:bg-yellow-700', 'text-white', 'py-1', 'px-3', 'rounded', 'text-sm', 'flex', 'items-center', 'space-x-1'); 
+                        postponeButton.innerHTML = '<i class="fas fa-calendar-alt"></i> Aplazar';
+                        postponeButton.addEventListener('click', () => postponeTask(activity.id, currentDateString, activity.hora, activity.texto));
+                        actionsDiv.appendChild(postponeButton);
+
+                        const completeButton = document.createElement('button');
+                        completeButton.classList.add('btn-completar', 'bg-blue-500', 'hover:bg-blue-700', 'text-white', 'py-1', 'px-3', 'rounded', 'text-sm', 'flex', 'items-center', 'space-x-1');
+                        completeButton.dataset.id = activity.id;
+                        completeButton.innerHTML = activity.completada ? '<i class="fas fa-undo"></i> Descompletar' : '<i class="fas fa-check"></i> Completar';
+                        if (activity.completada) completeButton.classList.add('completada', 'bg-green-500', 'hover:bg-green-700');
+                        completeButton.addEventListener('click', () => toggleTaskCompletada(activity.id));
+                        actionsDiv.appendChild(completeButton);
+
+                        const saveRegistroButton = document.createElement('button');
+                        saveRegistroButton.classList.add('btn-guardar-registro-icon', 'bg-gray-500', 'hover:bg-gray-700', 'text-white', 'py-1', 'px-3', 'rounded', 'text-sm', 'flex', 'items-center', 'space-x-1');
+                        saveRegistroButton.dataset.id = activity.id;
+                        saveRegistroButton.title = 'Guardar en Registro';
+                        saveRegistroButton.innerHTML = '<i class="fas fa-save"></i>';
+                        saveRegistroButton.addEventListener('click', () => saveTaskToRegistro(activity.id, currentDateString, activity.hora, activity.texto));
+                        actionsDiv.appendChild(saveRegistroButton);
+
+                    } else if (activity.type === 'rutina') {
+                        // Keep routine buttons for existing routines, even if new creation is removed
+                        const completeRoutineButton = document.createElement('button');
+                        completeRoutineButton.classList.add('btn-completar', 'bg-blue-500', 'hover:bg-blue-700', 'text-white', 'py-1', 'px-3', 'rounded', 'text-sm', 'flex', 'items-center', 'space-x-1');
+                        completeRoutineButton.dataset.id = activity.id; 
+                        
+                        if (completedRoutineIdsForSelectedDay.has(activity.id)) {
+                            completeRoutineButton.innerHTML = '<i class="fas fa-undo"></i> Descompletar';
+                            completeRoutineButton.classList.add('completada', 'bg-green-500', 'hover:bg-green-700'); 
+                        } else {
+                            completeRoutineButton.innerHTML = '<i class="fas fa-check"></i> Completar';
+                            completeRoutineButton.classList.remove('completada');
+                        }
+
+                        completeRoutineButton.addEventListener('click', async (event) => {
+                            const routineId = activity.id;
+                            try {
+                                const response = await fetch(`/api/rutinas/${routineId}/toggle_completada_dia`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ fecha: currentDateString })
+                                });
+
+                                if (!response.ok) {
+                                    const errorData = await response.json();
+                                    throw new Error(errorData.error || 'Error al actualizar estado de rutina.');
+                                }
+                                showCustomAlert('Estado de rutina actualizado.', 'Actualización Exitosa');
+                                showDayDetails(currentDateString); 
+                            } catch (error) {
+                                console.error('Error al cambiar estado de rutina:', error);
+                                showCustomAlert(`No se pudo actualizar la rutina. Error: ${error.message}`, 'Error de Actualización');
+                            }
+                        });
+                        actionsDiv.appendChild(completeRoutineButton);
+                    } else if (activity.type === 'cita') { // Botones para Citas
+                        const completeCitaButton = document.createElement('button');
+                        completeCitaButton.classList.add('btn-completar', 'bg-blue-500', 'hover:bg-blue-700', 'text-white', 'py-1', 'px-3', 'rounded', 'text-sm', 'flex', 'items-center', 'space-x-1');
+                        completeCitaButton.dataset.id = activity.id;
+                        
+                        if (activity.completada) {
+                            completeCitaButton.innerHTML = '<i class="fas fa-undo"></i> Descompletar';
+                            completeCitaButton.classList.add('completada', 'bg-green-500', 'hover:bg-green-700'); 
+                        } else {
+                            completeCitaButton.innerHTML = '<i class="fas fa-check"></i> Completar';
+                            completeCitaButton.classList.remove('completada');
+                        }
+
+                        completeCitaButton.addEventListener('click', async (event) => {
+                            const citaId = activity.id;
+                            try {
+                                const response = await fetch(`/api/citas/${citaId}/toggle_completada`, {
+                                    method: 'PATCH',
+                                });
+                                if (!response.ok) {
+                                    const errorData = await response.json();
+                                    throw new Error(errorData.error || 'Error al actualizar estado de cita.');
+                                }
+                                showCustomAlert('Estado de cita actualizado.', 'Actualización Exitosa');
+                                showDayDetails(currentDateString); 
+                            } catch (error) {
+                                console.error('Error al cambiar estado de cita:', error);
+                                showCustomAlert(`No se pudo actualizar la cita. Error: ${error.message}`, 'Error de Actualización');
+                            }
+                        });
+                        actionsDiv.appendChild(completeCitaButton);
+                    }
+                    
+                    li.appendChild(actionsDiv);
+                    panelActivitiesList.appendChild(li);
+                });
+            }
+
+            // Actualizar el intervalo para el tiempo restante: ¡cada 10 segundos!
+            if (timeLeftUpdateInterval) {
+                clearInterval(timeLeftUpdateInterval);
+                timeLeftUpdateInterval = null;
+            }
+            timeLeftUpdateInterval = setInterval(updateAllTimeLeftCountersInPanel, 10 * 1000); // 10 segundos
+            updateAllTimeLeftCountersInPanel(); 
+        }
+
+        // Función para actualizar el tiempo restante (adaptada para el calendario)
+        function updateTimeLeft(itemId, itemDate, itemTime) {
+            // Buscar elementos de tiempo restante dentro del panel de detalles
+            const targetElement = document.querySelector(`#dayDetailsPanel .time-left[data-task-id="${itemId}"]`);
+            if (!targetElement) { // Si no se encuentra el elemento, salir
+                return;
+            }
+            
+            // Verificar si el elemento padre está completado (solo aplica a tareas, rutinas y citas)
+            const parentItem = targetElement.closest('.entry-item');
+            
+            const isRoutineItem = itemId.startsWith('routine-cal-'); 
+            const isCitaItem = itemId.startsWith('cita-cal-'); // Nuevo check para citas
+
+            // Check if it's completed based on type
+            let isCompleted = false;
+            if (parentItem.classList.contains('task-item') && parentItem.classList.contains('completed-item')) {
+                isCompleted = true;
+            } else if (isRoutineItem && completedRoutineIdsForSelectedDay.has(itemId.replace('routine-cal-', ''))) {
+                isCompleted = true;
+            } else if (isCitaItem) {
+                // Para citas, si el li tiene la clase 'completed-item', está completada
+                if (parentItem.classList.contains('completed-item')) {
+                    isCompleted = true;
+                }
+            }
+
+
+            if (isCompleted) {
+                targetElement.textContent = ''; 
+                targetElement.classList.remove('vencida', 'pasada'); 
+                return;
+            }
+
+            const now = new Date();
+            let year, month, day, hours, minutes;
+
+            const dateParts = itemDate.split('-');
+            year = parseInt(dateParts[0]);
+            month = parseInt(dateParts[1]) - 1; 
+            day = parseInt(dateParts[2]);
+
+            // Ensure itemTime is HH:MM before parsing
+            let formattedItemTime = typeof itemTime === 'string' && itemTime.length >= 5 ? itemTime.substring(0, 5) : '';
+
+            if (formattedItemTime.match(/^\d{2}:\d{2}$/)) {
+                const timeParts = formattedItemTime.split(':');
+                hours = parseInt(timeParts[0]);
+                minutes = parseInt(timeParts[1]);
+            } else {
+                hours = 23;
+                minutes = 59;
+            }
+            
+            const itemMoment = new Date(year, month, day, hours, minutes, 0); 
+
+            if (isNaN(itemMoment.getTime())) { 
+                targetElement.textContent = '(Fecha/Hora Inválida)';
+                targetElement.style.color = '#dc3545';
+                targetElement.classList.remove('pasada');
+                if (parentItem) parentItem.querySelector('.entry-text').classList.add('vencida');
+                return;
+            }
+
+            
+            if (itemMoment < now) {
+                if (isRoutineItem || isCitaItem) { // Rutinas y Citas que han pasado la hora
+                    targetElement.textContent = '(Pasada)';
+                    targetElement.style.color = '#888'; 
+                    targetElement.classList.add('pasada'); 
+                    if (parentItem) parentItem.querySelector('.entry-text').classList.remove('vencida'); 
+                } else { // Tareas vencidas
+                    targetElement.textContent = '(Vencida)';
+                    targetElement.style.color = '#dc3545';
+                    targetElement.classList.remove('pasada');
+                    if (parentItem) parentItem.querySelector('.entry-text').classList.add('vencida');
+                }
+                return;
+            }
+
+            const diffMs = itemMoment - now;
+            const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            const hoursLeft = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutesLeft = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+            let timeLeftText = '';
+            if (days > 0) {
+                timeLeftText = `(${days} día${days !== 1 ? 's' : ''})`;
+            } else if (hoursLeft > 0) {
+                timeLeftText = `(${hoursLeft}h ${minutesLeft}m)`;
+            } else if (minutesLeft > 0) {
+                timeLeftText = `(${minutesLeft}m)`;
+            } else {
+                timeLeftText = '(Menos de 1m)';
+            }
+
+            targetElement.textContent = timeLeftText;
+            targetElement.style.color = '#007bff';
+            targetElement.classList.remove('pasada'); 
+            if (parentItem) parentItem.querySelector('.entry-text').classList.remove('vencida');
+        }
+
+        // Función para actualizar todos los contadores de tiempo restante DENTRO DEL PANEL
+        function updateAllTimeLeftCountersInPanel() {
+            const activeTimeSpans = document.querySelectorAll('#dayDetailsPanel .time-left');
+            activeTimeSpans.forEach(span => {
+                const itemId = span.dataset.taskId;
+                const itemDate = span.dataset.taskDate;
+                const itemTime = span.dataset.taskTime;
+                updateTimeLeft(itemId, itemDate, itemTime);
+            });
+        }
+
+        // --- Funciones de Modal y Confirmación ---
+        function createModal(content) {
+            const modalOverlay = document.createElement('div');
+            // MODIFICADO: z-index para modales generados dinámicamente
+            modalOverlay.classList.add('fixed', 'inset-0', 'bg-black', 'bg-opacity-50', 'flex', 'items-center', 'justify-center', 'z-[9998]'); 
+
+            const modalContent = document.createElement('div');
+            modalContent.classList.add('bg-white', 'p-6', 'rounded-lg', 'shadow-xl', 'max-w-md', 'mx-4', 'w-full');
+            modalContent.appendChild(content);
+
+            modalOverlay.appendChild(modalContent);
+
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) {
+                    modalOverlay.remove();
+                    // If the camera modal is open, ensure it's stopped when clicking outside
+                    if (modalOverlay.id === 'cameraModal') { // Note: This check might not be needed if cameraModal is static
+                        stopCamera();
+                        // Reset camera buttons state
+                        capturePhotoButton.style.display = 'block';
+                        retakePhotoButton.style.display = 'none';
+                        confirmPhotoButton.style.display = 'none';
+                    }
+                }
+            });
+            return modalOverlay;
+        }
+
+        // Function to show custom alert/confirm modal
+        function showCustomModal(message, title = 'Mensaje', type = 'alert') {
+            return new Promise((resolve) => {
+                const modalOverlay = document.getElementById('customModalOverlay');
+                const modalTitle = document.getElementById('customModalTitle');
+                const modalMessage = document.getElementById('customModalMessage');
+                const modalActions = document.getElementById('customModalActions');
+
+                modalTitle.textContent = title;
+                modalMessage.textContent = message;
+                modalActions.innerHTML = ''; // Clear previous buttons
+
+                if (type === 'alert') {
+                    const okButton = document.createElement('button');
+                    okButton.classList.add('bg-blue-500', 'hover:bg-blue-700', 'text-white', 'font-bold', 'py-2', 'px-4', 'rounded-full');
+                    okButton.textContent = 'Aceptar';
+                    okButton.addEventListener('click', () => {
+                        modalOverlay.style.display = 'none';
+                        resolve(true);
+                    });
+                    modalActions.appendChild(okButton);
+                } else if (type === 'confirm') {
+                    const yesButton = document.createElement('button');
+                    yesButton.classList.add('bg-green-500', 'hover:bg-green-700', 'text-white', 'font-bold', 'py-2', 'px-4', 'rounded-full');
+                    yesButton.textContent = 'Sí';
+                    yesButton.addEventListener('click', () => {
+                        modalOverlay.style.display = 'none';
+                        resolve(true);
+                    });
+                    const noButton = document.createElement('button');
+                    noButton.classList.add('bg-gray-500', 'hover:bg-gray-700', 'text-white', 'font-bold', 'py-2', 'px-4', 'rounded-full');
+                    noButton.textContent = 'No';
+                    noButton.addEventListener('click', () => {
+                        modalOverlay.style.display = 'none';
+                        resolve(false);
+                    });
+                    modalActions.appendChild(yesButton);
+                    modalActions.appendChild(noButton);
+                }
+
+                modalOverlay.style.display = 'flex';
+            });
+        }
+
+        // Wrapper for showCustomModal to use as alert
+        function showCustomAlert(message, title = 'Mensaje') {
+            // Utiliza un tipo diferente para que no se resuelva inmediatamente si no es un 'confirm'
+            return showCustomModal(message, title, 'alert');
+        }
+
+        // Wrapper for showCustomModal to use as confirm
+        async function showCustomConfirm(message, title = 'Confirmación') {
+            return await showCustomModal(message, title, 'confirm');
+        }
+
+        // --- Camera Control Functions ---
+        async function initCamera() {
+            cameraStatus.textContent = 'Iniciando cámara...';
+            videoStream.style.display = 'block';
+            photoPreview.style.display = 'none';
+            capturePhotoButton.style.display = 'block'; 
+            retakePhotoButton.style.display = 'none';
+            confirmPhotoButton.style.display = 'none';
+
+            if (currentStream) {
+                stopCamera();
+            }
+
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { exact: 'environment' } // Prefer rear camera
+                    }
+                });
+                videoStream.srcObject = currentStream;
+                videoStream.play();
+                cameraStatus.textContent = 'Cámara trasera activa. Haz clic en "Tomar Foto".';
+            } catch (err) {
+                console.warn("ADVERTENCIA: No se pudo acceder a la cámara trasera, intentando la frontal:", err);
+                cameraStatus.textContent = 'Cámara trasera no disponible, intentando la frontal.';
+                try {
+                    currentStream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'user'
+                        }
+                    });
+                    videoStream.srcObject = currentStream;
+                    videoStream.play();
+                    cameraStatus.textContent = 'Cámara frontal activa. Haz clic en "Tomar Foto".';
+                } catch (errFront) {
+                    console.error("ERROR: No se pudo acceder a ninguna cámara: ", errFront);
+                    showCustomAlert('No se pudo acceder a la cámara. Asegúrate de haber dado permiso y de que no esté en uso por otra aplicación.', 'Error de Cámara');
+                    cameraModal.style.display = 'none';
+                    cameraStatus.textContent = 'No se pudo acceder a ninguna cámara. Verifica permisos.';
+                    return;
+                }
+            }
+        }
+
+        function stopCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                videoStream.srcObject = null;
+            }
+        }
+
+        capturePhotoButton.addEventListener('click', () => {
+            if (videoStream.readyState === videoStream.HAVE_ENOUGH_DATA) {
+                photoCanvas.width = videoStream.videoWidth;
+                photoCanvas.height = videoStream.videoHeight;
+                const context = photoCanvas.getContext('2d');
+                context.drawImage(videoStream, 0, 0, photoCanvas.width, photoCanvas.height);
+                
+                capturedImageBase64 = photoCanvas.toDataURL('image/png');
+                currentFileName = `foto_calendario_${Date.now()}.png`; // Nombre de archivo genérico
+                currentMimeType = 'image/png'; // Tipo MIME fijo para PNG
+                
+                photoPreview.src = capturedImageBase64;
+                videoStream.style.display = 'none';
+                photoPreview.style.display = 'block';
+                capturePhotoButton.style.display = 'none';
+                retakePhotoButton.style.display = 'block';
+                confirmPhotoButton.style.display = 'block';
+                cameraStatus.textContent = 'Foto capturada. Confirma o repite.';
+                stopCamera();
+            } else {
+                cameraStatus.textContent = 'Esperando stream de video para capturar...';
+            }
+        });
+
+        retakePhotoButton.addEventListener('click', () => {
+            capturedImageBase64 = null;
+            currentFileName = null; // Clear filename on retake
+            currentMimeType = null;  // Clear mime type on retake
+            photoPreview.style.display = 'none';
+            capturePhotoButton.style.display = 'block'; 
+            retakePhotoButton.style.display = 'none';
+            confirmPhotoButton.style.display = 'none';
+            initCamera();
+        });
+
+        confirmPhotoButton.addEventListener('click', () => {
+            cameraModal.style.display = 'none';
+            stopCamera();
+            // Update the preview in the saveRegistro modal if it's open
+            if (currentRegistroPhotoPreviewElement && capturedImageBase64) {
+                currentRegistroPhotoPreviewElement.src = capturedImageBase64; // Corregido: era capturedImageBase664
+                currentRegistroPhotoPreviewElement.style.display = 'block';
+            }
+            cameraStatus.textContent = '';
+            capturePhotoButton.style.display = 'block';
+            retakePhotoButton.style.display = 'none';
+            confirmPhotoButton.style.display = 'none';
+        });
+
+        closeCameraModalButton.addEventListener('click', () => {
+            cameraModal.style.display = 'none';
+            stopCamera();
+            capturedImageBase64 = null;
+            currentFileName = null; // Clear filename on close
+            currentMimeType = null;  // Clear mime type on close
+            if (currentRegistroPhotoPreviewElement) {
+                currentRegistroPhotoPreviewElement.src = '';
+                currentRegistroPhotoPreviewElement.style.display = 'none';
+            }
+            currentRegistroPhotoPreviewElement = null; // Clear reference
+            cameraStatus.textContent = '';
+            capturePhotoButton.style.display = 'block';
+            retakePhotoButton.style.display = 'none';
+            confirmPhotoButton.style.display = 'none';
+        });
+
+        // --- Funciones de Acción (Eliminar / Aplazar / Completar / Guardar Registro) ---
+        async function deleteActivity(type, id) {
+            const confirmMessage = `¿Estás seguro de que quieres eliminar esta ${type}?`;
+            const confirmAction = await showCustomConfirm(confirmMessage);
+            if (confirmAction) {
+                try {
+                    const apiEndpoint = type === 'tarea' ? `/api/tareas/${id}` : 
+                                        (type === 'rutina' ? `/api/rutinas/${id}` : `/api/citas/${id}`); // Ruta para citas
+                    const response = await fetch(apiEndpoint, { method: 'DELETE' });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || `Error al eliminar ${type}.`);
+                    }
+                    showCustomAlert(`${type === 'tarea' ? 'Tarea' : (type === 'rutina' ? 'Rutina' : 'Cita')} eliminada con éxito.`, 'Eliminación Exitosa'); 
+                    showDayDetails(selectedDayFormattedDate); // Re-render current day details
+                    renderCalendar(); // Re-render calendar to update task marks
+                } catch (error) {
+                    console.error(`Error al eliminar ${type}:`, error);
+                    showCustomAlert(`No se pudo eliminar ${type}. Error: ${error.message}`, 'Error de Eliminación'); 
+                }
+            }
+        }
+
+        async function postponeTask(taskId, currentFecha, currentHora, currentTexto) {
+            const confirmAction = await showCustomConfirm(`¿Estás seguro de que quieres aplazar la tarea "${currentTexto}"?`);
+            if (!confirmAction) {
+                return;
+            }
+
+            const formContent = document.createElement('div');
+            formContent.innerHTML = `
+                <h3 class="text-xl font-bold mb-4 text-center">Aplazar Tarea</h3>
+                <p class="mb-4 text-gray-700 text-center">Tarea: <strong class="font-semibold">${currentTexto}</strong></p>
+                <div class="mb-4">
+                    <label for="newFecha" class="block text-gray-700 text-sm font-bold mb-2">Nueva Fecha:</label>
+                    <input type="date" id="newFecha" value="${currentFecha}" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="mb-6">
+                    <label for="newHora" class="block text-gray-700 text-sm font-bold mb-2">Nueva Hora (opcional):</label>
+                    <input type="time" id="newHora" value="${currentHora ? currentHora.substring(0, 5) : ''}" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="flex justify-center space-x-4">
+                    <button id="aplazarBtn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full">Aplazar</button>
+                    <button id="cancelAplazarBtn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full">Cancelar</button>
+                </div>
+            `;
+
+            const modal = createModal(formContent);
+            document.body.appendChild(modal);
+
+            // Set min date to today for newFecha input
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            document.getElementById('newFecha').min = `${year}-${month}-${day}`;
+
+
+            document.getElementById('aplazarBtn').addEventListener('click', async () => {
+                const newFecha = document.getElementById('newFecha').value;
+                const newHora = document.getElementById('newHora').value;
+
+                if (!newFecha) {
+                    showCustomAlert('Por favor, selecciona una nueva fecha.', 'Campo Obligatorio'); 
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/api/tareas/${taskId}/aplazar`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ new_fecha: newFecha, new_hora: newHora || null })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Error desconocido al aplazar la tarea.');
+                    }
+                    showCustomAlert('Tarea aplazada con éxito.', 'Aplazamiento Exitoso'); 
+                    modal.remove();
+                    showDayDetails(selectedDayFormattedDate);
+                    renderCalendar();
+                } catch (error) {
+                    console.error('Error al aplazar la tarea:', error);
+                    showCustomAlert(`No se pudo aplazar la tarea. Error: ${error.message}`, 'Error al Aplazar'); 
+                }
+            });
+
+            document.getElementById('cancelAplazarBtn').addEventListener('click', () => {
+                modal.remove();
+            });
+        }
+
+        async function toggleTaskCompletada(taskId) {
+            try {
+                const response = await fetch(`/api/tareas/${taskId}/toggle_completada`, {
+                    method: 'PATCH',
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error desconocido al actualizar la tarea.');
+                }
+                showDayDetails(selectedDayFormattedDate); 
+            } catch (error) {
+                console.error('Error al cambiar estado:', error);
+                showCustomAlert(`No se pudo actualizar la tarea. Error: ${error.message}`, 'Error de Actualización'); 
+            }
+        }
+
+        async function saveTaskToRegistro(taskId, currentFecha, currentHora, currentTexto) {
+            // Fetch available types for 'Registro Importante'
+            let tiposDisponibles = [];
+            try {
+                const response = await fetch('/api/tipos_registro');
+                if (!response.ok) throw new Error('Error al cargar los tipos de registro.');
+                tiposDisponibles = await response.json();
+            } catch (error) {
+                console.error('Error al cargar tipos para el modal de registro:', error);
+                showCustomAlert('No se pudieron cargar los tipos de registro. Se usará el tipo "General".', 'Advertencia');
+                tiposDisponibles = [{ id: null, nombre: 'General' }]; // Fallback
+            }
+
+            tiposDisponibles.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+            let tipoOptionsHtml = tiposDisponibles.map(type => 
+                `<option value="${type.nombre}">${type.nombre}</option>`
+            ).join('');
+
+            // Ensure 'General' is selected if it exists, or added if not
+            const generalOptionExists = tiposDisponibles.some(type => type.nombre === 'General');
+            if (!generalOptionExists) {
+                tipoOptionsHtml = `<option value="General" selected>General</option>` + tipoOptionsHtml;
+            } else {
+                tipoOptionsHtml = tipoOptionsHtml.replace(`value="General"`, `value="General" selected`);
+            }
+
+
+            const formContent = document.createElement('div');
+            formContent.innerHTML = `
+                <h3 class="text-xl font-bold mb-4 text-center">Guardar en Registro Importante</h3>
+                <div class="mb-4">
+                    <label for="registroTitulo" class="block text-gray-700 text-sm font-bold mb-2">Título:</label>
+                    <input type="text" id="registroTitulo" value="${currentTexto}" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+
+                <div class="mb-4">
+                    <label for="registroDescripcion" class="block text-gray-700 text-sm font-bold mb-2">Descripción:</label>
+                    <textarea id="registroDescripcion" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-24">${currentTexto}</textarea> 
+                </div>
+
+                <div class="mb-4">
+                    <label for="registroTipo" class="block text-gray-700 text-sm font-bold mb-2">Tipo:</label>
+                    <select id="registroTipo" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        ${tipoOptionsHtml}
+                    </select>
+                </div>
+                
+                <div class="mb-4 text-center">
+                    <p class="text-gray-700 text-sm font-bold mb-2">Opcional: Adjuntar una foto</p>
+                    <button type="button" id="openCameraButton" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full flex items-center justify-center mx-auto space-x-2">
+                        <i class="fas fa-camera"></i> <span>Tomar Foto</span>
+                    </button>
+                    <img id="registroPhotoPreview" class="photo-preview mt-4 mx-auto" style="display:none;">
+                </div>
+
+                <div class="flex justify-center space-x-4">
+                    <button id="guardarRegistroBtn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full">Guardar</button>
+                    <button id="cancelRegistroBtn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full">Cancelar</button>
+                </div>
+            `;
+
+            const modal = createModal(formContent);
+            document.body.appendChild(modal);
+
+            const openCameraButton = modal.querySelector('#openCameraButton');
+            currentRegistroPhotoPreviewElement = modal.querySelector('#registroPhotoPreview'); // Set the reference
+
+            // Display already captured image if available
+            if (capturedImageBase64) {
+                currentRegistroPhotoPreviewElement.src = capturedImageBase64;
+                currentRegistroPhotoPreviewElement.style.display = 'block';
+            } else {
+                currentRegistroPhotoPreviewElement.style.display = 'none';
+            }
+
+            openCameraButton.addEventListener('click', () => {
+                cameraModal.style.display = 'flex';
+                // Reset camera state when opening from this modal
+                videoStream.style.display = 'block';
+                photoPreview.style.display = 'none';
+                capturePhotoButton.style.display = 'block'; 
+                retakePhotoButton.style.display = 'none';
+                confirmPhotoButton.style.display = 'none';
+                capturedImageBase64 = null; // Clear any previous captured image
+                currentFileName = null; // Also clear filename
+                currentMimeType = null; // Also clear mime type
+                initCamera(); // Initialize camera
+            });
+
+            document.getElementById('guardarRegistroBtn').addEventListener('click', async () => {
+                const titulo = document.getElementById('registroTitulo').value.trim();
+                const descripcion = document.getElementById('registroDescripcion').value.trim();
+                const tipo = document.getElementById('registroTipo').value;
+
+                if (!titulo) {
+                    showCustomAlert('El título es obligatorio.', 'Campo Obligatorio'); 
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/registros_importantes/add_from_task', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            fecha: currentFecha,
+                            titulo: titulo,
+                            descripcion: descripcion,
+                            tipo: tipo,
+                            imagen_base64: capturedImageBase64, // Pass the captured image
+                            nombre_archivo: currentFileName,     // Pass the filename
+                            mime_type: currentMimeType         // Pass the mime type
+                        })
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Error desconocido al guardar el registro.');
+                    }
+                    showCustomAlert('Registro guardado con éxito.', 'Guardado Exitoso'); 
+                    modal.remove();
+                    capturedImageBase64 = null; // Clear after successful save
+                    currentFileName = null;      // Clear filename after successful save
+                    currentMimeType = null;      // Clear mime type after successful save
+                    currentRegistroPhotoPreviewElement = null; // Clear reference
+                    stopCamera(); // Ensure camera is stopped if it was open
+                } catch (error) {
+                    console.error('Error al guardar el registro:', error);
+                    showCustomAlert(`No se pudo guardar el registro: ${error.message}`, 'Error de Guardado'); 
+                }
+            });
+
+            document.getElementById('cancelRegistroBtn').addEventListener('click', () => {
+                modal.remove();
+                capturedImageBase64 = null; // Clear on cancel
+                currentFileName = null;      // Clear filename on cancel
+                currentMimeType = null;      // Clear mime type on cancel
+                currentRegistroPhotoPreviewElement = null; // Clear reference
+                stopCamera(); // Ensure camera is stopped
+            });
+        }
+
+
+        // --- Lógica del Formulario de Adición ---
+        entryTypeSelect.addEventListener('change', () => {
+            // routineFieldsDiv.style.display = 'none'; // No longer needed as 'rutina' option is removed
+            citaFieldsDiv.style.display = 'none'; // Ocultar campos de cita
+            entryTimeInput.required = false;
+            entryTimeInputLabel.textContent = 'Hora:'; // Restaurar label
+            entryTextInput.placeholder = 'Añadir una nueva tarea o cita...'; // Adjusted placeholder
+
+            if (entryTypeSelect.value === 'cita') { // Mostrar campos de cita
+                citaFieldsDiv.style.display = 'block';
+                entryTextLabel.textContent = 'Nombre de la Cita:';
+                entryTextInput.placeholder = 'Ej. Cita con el médico, Entrevista de trabajo';
+                entryTimeInput.required = false; // Hora es opcional para citas
+                entryTimeInputLabel.textContent = 'Hora (opcional):';
+            } else { // type === 'tarea'
+                entryTextLabel.textContent = 'Descripción:';
+                entryTextInput.placeholder = 'Añadir una nueva tarea...';
+            }
+            // routineDayCheckboxes.forEach(checkbox => checkbox.checked = false); // No longer needed
+        });
+
+        unifiedEntryForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!selectedDayFormattedDate) {
+                showCustomAlert('Por favor, selecciona un día en el calendario para añadir una actividad.', 'Día no Seleccionado'); 
+                return;
+            }
+
+            const type = entryTypeSelect.value;
+            const text = entryTextInput.value.trim();
+            const hora = entryTimeInput.value.trim();
+
+            if (!text) {
+                showCustomAlert('La descripción no puede estar vacía.', 'Campo Obligatorio'); 
+                return;
+            }
+
+            if (type === 'tarea') {
+                try {
+                    const response = await fetch('/api/tareas', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ fecha: selectedDayFormattedDate, texto: text, hora }),
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Error desconocido al guardar la tarea.');
+                    }
+                    showCustomAlert('Tarea guardada con éxito.', 'Guardado Exitoso'); 
+                    showDayDetails(selectedDayFormattedDate); 
+                    renderCalendar(); 
+                } catch (error) {
+                    console.error('Error al guardar la tarea:', error);
+                    showCustomAlert(`No se pudo guardar la tarea. Inténtalo de nuevo. Error: ${error.message}`, 'Error de Guardado'); 
+                }
+            } else if (type === 'cita') { // Manejo de nueva Cita
+                // La fecha de la cita es el día seleccionado en el calendario
+                const citaFecha = selectedDayFormattedDate; 
+
+                try {
+                    const response = await fetch('/api/citas', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ nombre: text, fecha: citaFecha, hora: hora || null }),
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Error desconocido al guardar la cita.');
+                    }
+                    showCustomAlert('Cita guardada con éxito.', 'Guardado Exitoso');
+                    showDayDetails(citaFecha); // Recargar agenda del día
+                    renderCalendar(); // Re-render calendar to update task marks
+                } catch (error) {
+                    console.error('Error saving cita:', error);
+                    showCustomAlert(`No se pudo guardar la cita. Inténtalo de nuevo. Error: ${error.message}`, 'Error de Guardado');
+                }
+            }
+
+            // Restablecer el formulario
+            entryTextInput.value = '';
+            entryTimeInput.value = '';
+            // routineDayCheckboxes.forEach(checkbox => checkbox.checked = false); // Not needed
+            entryTypeSelect.value = 'tarea';
+            // routineFieldsDiv.style.display = 'none'; // Not needed
+            citaFieldsDiv.style.display = 'none'; // Asegurarse de ocultar campos de cita
+            entryTextLabel.textContent = 'Descripción:';
+            entryTextInput.placeholder = 'Añadir una nueva tarea...';
+            entryTimeInput.required = false;
+            entryTimeInputLabel.textContent = 'Hora:';
+        });
+
+        // Función para reiniciar el formulario y el panel
+        function resetFormAndPanel() {
+            entryTextInput.value = '';
+            entryTimeInput.value = '';
+            routineDayCheckboxes.forEach(checkbox => checkbox.checked = false);
+            entryTypeSelect.value = 'tarea';
+            routineFieldsDiv.style.display = 'none';
+            citaFieldsDiv.style.display = 'none'; // Asegurarse de ocultar campos de cita
+            entryTextLabel.textContent = 'Descripción:';
+            entryTextInput.placeholder = 'Añadir una nueva tarea...';
+            entryTimeInput.required = false;
+            entryTimeInputLabel.textContent = 'Hora:';
+
+            panelDateElem.textContent = 'Selecciona un día para ver los detalles';
+            panelActivitiesList.innerHTML = ''; // Limpiamos la única lista
+            if (timeLeftUpdateInterval) {
+                clearInterval(timeLeftUpdateInterval);
+                timeLeftUpdateInterval = null;
+            }
+        }
+
+        prevMonthBtn.addEventListener('click', () => {
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
+            renderCalendar();
+        });
+
+        nextMonthBtn.addEventListener('click', () => {
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            renderCalendar();
+        });
+
+        yearSelect.addEventListener('change', (event) => {
+            currentYear = parseInt(event.target.value);
+            renderCalendar();
+        });
+
+        todayButton.addEventListener('click', () => {
+            const today = new Date();
+            currentYear = today.getFullYear();
+            currentMonth = today.getMonth();
+            yearSelect.value = currentYear; // Sincroniza el selector de año
+            selectedDayFormattedDate = formatFecha(today); // Seleccionar el día actual al hacer clic en "Hoy"
+            renderCalendar();
+        });
+
+
+        function initCalendar() {
+            const today = new Date();
+            currentYear = today.getFullYear();
+            currentMonth = today.getMonth(); // 0-indexed
+            
+            // Populate year select
+            for (let i = currentYear - 5; i <= currentYear + 5; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i;
+                yearSelect.appendChild(option);
+            }
+            yearSelect.value = currentYear; // Select current year by default
+            
+            renderCalendar();
+        }
+
+        document.addEventListener('DOMContentLoaded', initCalendar);
+    </script>
+</body>
+</html>

@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Citas - Mi Agenda</title>
+    <!-- Favicon para el icono del acceso directo en móvil -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/agenda_icon.png') }}">
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" xintegrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Estilos personalizados para los badges de conteo y algunas transiciones */
+        .button-count, .button-nav-count {
+            position: absolute;
+            top: 0;
+            right: 0;
+            transform: translate(50%, -50%); /* Ajusta la posición del badge */
+            background-color: #ef4444; /* Rojo de Tailwind */
+            color: white;
+            border-radius: 9999px; /* Para hacerlo circular */
+            padding: 0.25rem 0.625rem; /* px-2 py-1 */
+            font-size: 0.75rem; /* text-xs */
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.5rem; /* Para asegurar que sea circular */
+            min-height: 1.5rem;
+            line-height: 1; /* Eliminar espacio extra */
+        }
+        .boton {
+            transition: all 0.2s ease-in-out;
+        }
+        .boton:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Estilos generales para ítems completados */
+        .completed-item .cita-text,
+        .completed-item .cita-info {
+            text-decoration: line-through;
+            color: #888;
+            opacity: 0.7;
+        }
+        .completed-item .btn-completar {
+            background-color: #28a745; /* Color verde para "Descompletar" */
+            color: white;
+        }
+        .cita-item .btn-completar { /* Estilo para el botón de completar */
+            background-color: #007bff;
+            color: white;
+        }
+        /* Color para ítems con tiempo pasado (no completados) */
+        .cita-item .dias-restantes.pasada {
+            color: #888; /* Gris para indicar que ha pasado la hora */
+            font-style: italic;
+        }
+        .cita-item .dias-restantes.vencida {
+            color: #dc3545; /* Rojo para vencida */
+        }
+
+        /* Estilos específicos para Citas */
+        .cita-item {
+            background-color: #e0f7fa; /* Un azul claro para destacar */
+            border-left: 5px solid #00acc1;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column; /* Cambiado a columna para mejor responsive */
+            justify-content: space-between;
+            align-items: flex-start; /* Alineado a la izquierda */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        @media (min-width: 640px) { /* Para pantallas más grandes, volver a fila */
+            .cita-item {
+                flex-direction: row;
+                align-items: center;
+            }
+        }
+        .cita-item.completada {
+            background-color: #f0f4c3; /* Un verde claro para citas completadas */
+            border-left-color: #8bc34a;
+        }
+        .cita-item .cita-text {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px; /* Espacio entre el texto y la información en móvil */
+        }
+        .cita-item .cita-info {
+            font-size: 0.9em;
+            color: #555;
+        }
+        .cita-item .dias-restantes {
+            font-weight: bold;
+            color: #007bff;
+            margin-top: 5px; /* Espacio para móvil */
+            margin-left: 0; /* Reiniciar margen izquierdo en móvil */
+        }
+        @media (min-width: 640px) {
+            .cita-item .dias-restantes {
+                margin-top: 0;
+                margin-left: 10px; /* Margen para pantallas más grandes */
+            }
+        }
+        .cita-item.completada .dias-restantes {
+             color: #888;
+        }
+        .cita-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px; /* Espacio para móvil */
+            width: 100%; /* Ocupar todo el ancho en móvil */
+            justify-content: flex-end; /* Alineación a la derecha */
+        }
+        @media (min-width: 640px) {
+            .cita-actions {
+                margin-top: 0;
+                width: auto;
+                margin-left: auto; /* Mover a la derecha en pantallas grandes */
+            }
+        }
+        .cita-actions button {
+            padding: 6px 10px;
+            font-size: 0.85em;
+            border-radius: 0.375rem; /* rounded-md */
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* Estilo para los títulos de mes */
+        .month-header {
+            font-size: 1.5rem; /* text-2xl */
+            font-weight: bold;
+            color: #4a5568; /* gray-700 */
+            margin-top: 2rem; /* mt-8 */
+            margin-bottom: 0.75rem; /* mb-3 */
+            border-bottom: 1px solid #e2e8f0; /* border-b */
+            padding-bottom: 0.5rem; /* pb-2 */
+        }
+
+        /* Estilos para la sección de requisitos */
+        .requisitos-toggle-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #00acc1; /* Color similar al borde de la cita */
+            font-size: 1.2rem;
+            padding: 5px;
+            border-radius: 50%;
+            transition: all 0.2s ease-in-out;
+        }
+        .requisitos-toggle-btn:hover {
+            background-color: #b2ebf2; /* Light hover effect */
+        }
+        .requisitos-container {
+            width: 100%;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #b2ebf2; /* Light dashed border */
+        }
+        .requisitos-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            color: #4a5568;
+        }
+        .requisitos-item input[type="checkbox"] {
+            margin-right: 8px;
+            transform: scale(1.2);
+            accent-color: #00acc1; /* Color del checkbox */
+        }
+        .requisitos-item.checked span {
+            text-decoration: line-through;
+            color: #888;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans antialiased">
+    <div class="max-w-4xl mx-auto p-4 bg-white shadow-lg rounded-lg mt-6">
+        <div class="text-center text-xl font-semibold text-gray-700 mb-4" id="fechaActualDisplay"></div>
+
+        <h2 class="text-2xl font-bold text-gray-800 mb-3 border-b pb-2">Mis Citas:</h2> 
+        <div class="list-section mb-6">
+            <ul id="citasList" class="space-y-2">
+                <li class="text-gray-500 italic">Cargando citas...</li>
+            </ul>
+        </div>
+
+        <h2 class="text-2xl font-bold text-gray-800 mb-3 border-b pb-2">Añadir Nueva Cita:</h2> 
+        <form id="citaForm" class="p-4 bg-blue-50 rounded-lg shadow-inner">
+            <div class="mb-4">
+                <label for="citaNombreInput" class="block text-gray-700 text-sm font-bold mb-2">Nombre de la Cita:</label>
+                <input type="text" id="citaNombreInput" placeholder="Ej. Cita con el médico, Entrevista de trabajo" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+
+            <div class="mb-4 flex flex-col md:flex-row items-center gap-4">
+                <div class="w-full md:w-1/2">
+                    <label for="citaFechaInput" class="block text-gray-700 text-sm font-bold mb-2">Fecha de la Cita:</label>
+                    <input type="date" id="citaFechaInput" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="w-full md:w-1/2">
+                    <label for="citaHoraInput" class="block text-gray-700 text-sm font-bold mb-2">Hora (opcional):</label>
+                    <input type="time" id="citaHoraInput" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+            </div>
+
+            <div class="mb-4 p-3 bg-blue-100 rounded-md">
+                <label for="citaRequisitoInput" class="block text-gray-700 text-sm font-bold mb-2">Requisitos para la Cita (uno a uno):</label>
+                <div class="flex gap-2 mb-2">
+                    <input type="text" id="citaRequisitoInput" placeholder="Ej. DNI, informes médicos" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <button type="button" id="addRequisitoBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-all duration-200">Añadir</button>
+                </div>
+                <ul id="requisitosListDisplay" class="list-disc list-inside text-gray-800 text-sm">
+                    <!-- Requisitos added dynamically here -->
+                </ul>
+            </div>
+
+            <button type="submit" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:shadow-lg w-full transition-all duration-200">Guardar Cita</button>
+        </form>
+
+        <h2 class="text-2xl font-bold text-gray-800 mt-8 mb-3 border-b pb-2">Navegación:</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 p-2">
+            <a href="/" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-blue-400 text-white">
+                <i class="fas fa-home text-2xl mb-1"></i>
+                <span>Inicio</span>
+            </a>
+            <a href="/calendario" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-blue-400 text-white">
+                <i class="fas fa-calendar-alt text-2xl mb-1"></i>
+                <span>Calendario</span>
+            </a>
+            <a href="/registros_importantes" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-purple-400 text-white">
+                <i class="fas fa-file-alt text-2xl mb-1"></i>
+                <span>Registros</span>
+            </a>
+            <a href="/alimentacion" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-yellow-400 text-white">
+                <i class="fas fa-utensils text-2xl mb-1"></i>
+                <span>Alimentación</span>
+            </a>
+            <a href="/documentacion" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-pink-400 text-white">
+                <i class="fas fa-folder-open text-2xl mb-1"></i>
+                <span>Documentos</span>
+            </a>
+            <a href="/citas" class="relative boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-teal-400 text-white">
+                <i class="fas fa-calendar-check text-2xl mb-1"></i>
+                <span>Citas</span>
+                <span class="button-nav-count" id="navCitasCount">0</span>
+            </a>
+            <a href="/lista" class="relative boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-orange-400 text-white">
+                <i class="fas fa-shopping-cart text-2xl mb-1"></i>
+                <span>Lista Compra</span>
+                <span class="button-nav-count" id="navListCount">0</span>
+            </a>
+            <a href="/notas" class="relative boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-indigo-400 text-white">
+                <i class="fas fa-pencil-alt text-2xl mb-1"></i>
+                <span>Notas</span>
+                <span class="button-nav-count" id="navNotesCount">0</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Custom Alert/Confirm Modal HTML (GLOBAL) -->
+    <div id="customModalOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display:none;">
+        <div class="bg-white p-6 rounded-lg shadow-xl custom-modal-content">
+            <h3 id="customModalTitle" class="text-xl font-bold mb-4 text-center"></h3>
+            <p id="customModalMessage" class="mb-6 text-gray-700 text-center"></p>
+            <div class="flex justify-center space-x-4" id="customModalActions">
+                <!-- Buttons will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Editar Cita -->
+    <div id="editCitaModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display:none;">
+        <div class="bg-white p-6 rounded-lg shadow-xl custom-modal-content max-w-md w-full mx-4">
+            <h3 class="text-xl font-bold mb-4 text-center">Editar Cita</h3>
+            <input type="hidden" id="editCitaId">
+            <div class="mb-4">
+                <label for="editCitaNombre" class="block text-gray-700 text-sm font-bold mb-2">Nombre de la Cita:</label>
+                <input type="text" id="editCitaNombre" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div class="mb-4">
+                <label for="editCitaFecha" class="block text-gray-700 text-sm font-bold mb-2">Fecha:</label>
+                <input type="date" id="editCitaFecha" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <div class="mb-6">
+                <label for="editCitaHora" class="block text-gray-700 text-sm font-bold mb-2">Hora (opcional):</label>
+                <input type="time" id="editCitaHora" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            
+            <div class="mb-4 p-3 bg-blue-100 rounded-md">
+                <label for="editCitaRequisitoInput" class="block text-gray-700 text-sm font-bold mb-2">Requisitos para la Cita (uno a uno):</label>
+                <div class="flex gap-2 mb-2">
+                    <input type="text" id="editCitaRequisitoInput" placeholder="Ej. DNI, informes médicos" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <button type="button" id="editAddRequisitoBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-all duration-200">Añadir</button>
+                </div>
+                <ul id="editRequisitosListDisplay" class="list-disc list-inside text-gray-800 text-sm">
+                    <!-- Requisitos edited dynamically here -->
+                </ul>
+            </div>
+
+            <div class="flex justify-center space-x-4">
+                <button id="saveEditCitaBtn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full">Guardar Cambios</button>
+                <button id="cancelEditCitaBtn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        const fechaActualDisplay = document.getElementById('fechaActualDisplay');
+        const citasList = document.getElementById('citasList');
+        let fechaActual = new Date();
+
+        const citaForm = document.getElementById('citaForm');
+        const citaNombreInput = document.getElementById('citaNombreInput');
+        const citaFechaInput = document.getElementById('citaFechaInput');
+        const citaHoraInput = document.getElementById('citaHoraInput');
+
+        // New elements for requirements
+        const citaRequisitoInput = document.getElementById('citaRequisitoInput');
+        const addRequisitoBtn = document.getElementById('addRequisitoBtn');
+        const requisitosListDisplay = document.getElementById('requisitosListDisplay');
+        let currentRequisitos = []; // Array to hold requirements for new cita
+
+        // Elements for navigation count badges (assuming you'll fetch these counts)
+        const navCitasCountElem = document.getElementById('navCitasCount');
+        const navListCountElem = document.getElementById('navListCount');
+        const navNotesCountElem = document.getElementById('navNotesCount');
+
+        // Edit Modal elements
+        const editCitaModal = document.getElementById('editCitaModal');
+        const editCitaId = document.getElementById('editCitaId');
+        const editCitaNombre = document.getElementById('editCitaNombre');
+        const editCitaFecha = document.getElementById('editCitaFecha');
+        const editCitaHora = document.getElementById('editCitaHora');
+        const saveEditCitaBtn = document.getElementById('saveEditCitaBtn');
+        const cancelEditCitaBtn = document.getElementById('cancelEditCitaBtn');
+
+        // New elements for edit requirements
+        const editCitaRequisitoInput = document.getElementById('editCitaRequisitoInput');
+        const editAddRequisitoBtn = document.getElementById('editAddRequisitoBtn');
+        const editRequisitosListDisplay = document.getElementById('editRequisitosListDisplay');
+        let editCurrentRequisitos = []; // Array to hold requirements for edited cita
+
+
+        function formatFecha(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        
+        function displayFechaActual() {
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            fechaActualDisplay.textContent = fechaActual.toLocaleDateString('es-ES', options);
+        }
+
+        // Function to render requirements list (for add form)
+        function renderRequisitosList(requisitosArray, displayElement, isEditable = true, citaId = null) {
+            displayElement.innerHTML = '';
+            if (requisitosArray && requisitosArray.length > 0) {
+                requisitosArray.forEach((req, index) => {
+                    const li = document.createElement('li');
+                    li.classList.add('requisitos-item');
+                    if (req.checked) {
+                        li.classList.add('checked');
+                    }
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.checked = req.checked;
+                    checkbox.disabled = !isEditable; // Disable checkbox if not editable
+
+                    if (isEditable && citaId) { // Only add listener if editable and citaId exists
+                        checkbox.addEventListener('change', () => toggleRequisitoCompletado(citaId, index, req.text));
+                    } else if (isEditable && !citaId) { // For the add/edit modals before saving to DB
+                         checkbox.addEventListener('change', () => {
+                            req.checked = checkbox.checked;
+                            li.classList.toggle('checked', req.checked);
+                        });
+                    }
+
+                    const span = document.createElement('span');
+                    span.textContent = req.text;
+
+                    li.appendChild(checkbox);
+                    li.appendChild(span);
+
+                    if (isEditable && !citaId) { // Add remove button only for add/edit forms
+                        const removeBtn = document.createElement('button');
+                        removeBtn.innerHTML = '<i class="fas fa-times text-red-500 hover:text-red-700 ml-2"></i>';
+                        removeBtn.classList.add('ml-auto', 'text-sm');
+                        removeBtn.onclick = () => {
+                            if (displayElement === requisitosListDisplay) {
+                                currentRequisitos.splice(index, 1);
+                                renderRequisitosList(currentRequisitos, displayElement, isEditable, citaId);
+                            } else if (displayElement === editRequisitosListDisplay) {
+                                editCurrentRequisitos.splice(index, 1);
+                                renderRequisitosList(editCurrentRequisitos, displayElement, isEditable, citaId);
+                            }
+                        };
+                        li.appendChild(removeBtn);
+                    }
+                    displayElement.appendChild(li);
+                });
+            } else {
+                displayElement.innerHTML = '<li class="text-gray-500 italic">No hay requisitos.</li>';
+            }
+        }
+
+
+        async function fetchCitas() {
+            try {
+                // Fetch all citas, ordered by date and time
+                const response = await fetch(`/api/citas/all`); 
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Error al cargar citas: ${errorText}`);
+                }
+                const citas = await response.json();
+                renderCitas(citas);
+
+                // Update navigation counters (you can adjust these API calls if you have specific counters)
+                navCitasCountElem.textContent = citas.filter(c => !c.completada && new Date(c.fecha + (c.hora || '')) >= new Date()).length;
+                
+                // These counters would need to come from specific APIs if they are not loaded here
+                // For example: /api/lista_compra/count_uncompleted and /api/notas/count
+                const listCountResponse = await fetch('/api/lista_compra');
+                const listItems = await listCountResponse.json();
+                navListCountElem.textContent = listItems.filter(item => !item.comprado).length;
+
+                const notesCountResponse = await fetch('/api/notas');
+                const notes = await notesCountResponse.json();
+                navNotesCountElem.textContent = notes.length;
+
+            } catch (error) {
+                console.error('Error fetching citas or counts:', error);
+                citasList.innerHTML = '<li class="text-gray-500 italic">No se pudieron cargar las citas.</li>';
+                navCitasCountElem.textContent = '0';
+                navListCountElem.textContent = '0';
+                navNotesCountElem.textContent = '0';
+            }
+        }
+
+        function renderCitas(citas) {
+            citasList.innerHTML = '';
+            if (citas.length === 0) {
+                citasList.innerHTML = '<li class="text-gray-500 italic">No hay citas registradas.</li>';
+                return;
+            }
+
+            // Sort by date and then by time
+            citas.sort((a, b) => {
+                const dateA = new Date(a.fecha + (a.hora ? `T${a.hora}` : 'T23:59:59'));
+                const dateB = new Date(b.fecha + (b.hora ? `T${b.hora}` : 'T23:59:59'));
+                if (dateA.getTime() === dateB.getTime()) {
+                    // If dates and times are the same, sort by completed status (incomplete first)
+                    if (a.completada && !b.completada) return 1;
+                    if (!a.completada && b.completada) return -1;
+                    return 0;
+                }
+                return dateA - dateB;
+            });
+
+            const today = new Date(); // To calculate days remaining or 'Pasada'
+            let currentMonthYear = ''; // To track the current month and year for grouping
+
+            citas.forEach(cita => {
+                const citaDateObj = new Date(cita.fecha);
+                const monthYear = `${citaDateObj.getFullYear()}-${String(citaDateObj.getMonth() + 1).padStart(2, '0')}`;
+
+                // If the month/year changes, add a new header
+                if (monthYear !== currentMonthYear) {
+                    currentMonthYear = monthYear;
+                    const monthHeader = document.createElement('h3');
+                    monthHeader.classList.add('month-header'); // Tailwind classes for styling
+                    const monthName = citaDateObj.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+                    monthHeader.textContent = monthName.charAt(0).toUpperCase() + monthName.slice(1); // Capitalize first letter
+                    citasList.appendChild(monthHeader);
+                }
+
+                const li = document.createElement('li');
+                li.classList.add('cita-item');
+                if (cita.completada) {
+                    li.classList.add('completada');
+                }
+
+                const citaDateTime = new Date(cita.fecha + (cita.hora ? `T${cita.hora}` : 'T23:59:59'));
+                const isPast = citaDateTime < today && !cita.completada;
+
+                let daysRemainingText = '';
+                const diffTime = citaDateTime.getTime() - today.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+
+                if (cita.completada) {
+                    daysRemainingText = 'Completada';
+                } else if (isPast) {
+                    daysRemainingText = 'Pasada';
+                } else if (diffDays === 0) {
+                    daysRemainingText = 'Hoy';
+                } else if (diffDays === 1) {
+                    daysRemainingText = 'Mañana';
+                } else if (diffDays > 1) {
+                    daysRemainingText = `En ${diffDays} días`;
+                } else { 
+                     daysRemainingText = 'Pasada';
+                }
+
+                // Format for displaying only day of week and day number (e.g., "Mar 2")
+                const dayFormatted = citaDateObj.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
+                const horaFormateada = cita.hora ? cita.hora.substring(0, 5) : 'Sin hora';
+
+                // Check for requirements and parse them
+                let requisitos = [];
+                let hasRequirements = false;
+                if (cita.recordatorio) {
+                    try {
+                        requisitos = JSON.parse(cita.recordatorio);
+                        hasRequirements = requisitos.length > 0;
+                    } catch (e) {
+                        console.error('Error parsing recordatorio JSON:', e, 'Raw data:', cita.recordatorio);
+                        requisitos = []; // Fallback to empty array if parsing fails
+                    }
+                }
+
+
+                li.innerHTML = `
+                    <div class="flex-grow">
+                        <span class="cita-text">${cita.nombre}</span>
+                        <div class="cita-info">
+                            Día: ${dayFormatted} | Hora: ${horaFormateada}
+                        </div>
+                    </div>
+                    <div class="dias-restantes ${isPast ? 'vencida' : ''}">${daysRemainingText}</div>
+                    <div class="cita-actions flex items-center">
+                        ${hasRequirements ? `
+                            <button class="requisitos-toggle-btn" data-id="${cita.id}" aria-expanded="false">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                        ` : ''}
+                        <button class="btn-completar bg-blue-500 hover:bg-blue-700 text-white" data-id="${cita.id}">
+                            <i class="fas ${cita.completada ? 'fa-undo' : 'fa-check'}"></i> 
+                            <span>${cita.completada ? 'Descompletar' : 'Completar'}</span>
+                        </button>
+                        <button class="btn-editar bg-yellow-500 hover:bg-yellow-700 text-white" data-id="${cita.id}">
+                            <i class="fas fa-edit"></i> <span>Editar</span>
+                        </button>
+                        <button class="btn-eliminar bg-red-500 hover:bg-red-700 text-white" data-id="${cita.id}">
+                            <i class="fas fa-trash-alt"></i> <span>Eliminar</span>
+                        </button>
+                    </div>
+                    <div id="requisitos-${cita.id}" class="requisitos-container hidden">
+                        <!-- Requirements will be rendered here by JS -->
+                    </div>
+                `;
+
+                // Add event listeners for main buttons
+                li.querySelector('.btn-completar').addEventListener('click', () => toggleCitaCompletada(cita.id));
+                li.querySelector('.btn-editar').addEventListener('click', () => openEditCitaModal(cita));
+                li.querySelector('.btn-eliminar').addEventListener('click', () => deleteCita(cita.id));
+
+                // Add event listener for requirements toggle button
+                if (hasRequirements) {
+                    const toggleBtn = li.querySelector('.requisitos-toggle-btn');
+                    const requisitosContainer = li.querySelector(`#requisitos-${cita.id}`);
+                    toggleBtn.addEventListener('click', () => {
+                        const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+                        toggleBtn.setAttribute('aria-expanded', !isExpanded);
+                        requisitosContainer.classList.toggle('hidden', isExpanded);
+                        if (!isExpanded) {
+                            renderRequisitosList(requisitos, requisitosContainer, true, cita.id); // Render with interactivity
+                        } else {
+                            requisitosContainer.innerHTML = ''; // Clear on collapse
+                        }
+                    });
+                }
+
+                citasList.appendChild(li);
+            });
+        }
+
+        // Add requirement for new cita form
+        addRequisitoBtn.addEventListener('click', () => {
+            const reqText = citaRequisitoInput.value.trim();
+            if (reqText) {
+                currentRequisitos.push({ text: reqText, checked: false });
+                citaRequisitoInput.value = '';
+                renderRequisitosList(currentRequisitos, requisitosListDisplay, false); // Render in form, not editable checkbox
+            }
+        });
+
+        // Add requirement for edit cita form
+        editAddRequisitoBtn.addEventListener('click', () => {
+            const reqText = editCitaRequisitoInput.value.trim();
+            if (reqText) {
+                editCurrentRequisitos.push({ text: reqText, checked: false });
+                editCitaRequisitoInput.value = '';
+                renderRequisitosList(editCurrentRequisitos, editRequisitosListDisplay, false); // Render in form, not editable checkbox
+            }
+        });
+
+        citaForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nombre = citaNombreInput.value.trim();
+            const fecha = citaFechaInput.value;
+            const hora = citaHoraInput.value.trim();
+
+            if (!nombre || !fecha) {
+                showCustomAlert('El nombre y la fecha de la cita son obligatorios.', 'Campos Obligatorios');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/citas', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        nombre, 
+                        fecha, 
+                        hora: hora || null,
+                        recordatorio: JSON.stringify(currentRequisitos) // Send requirements as JSON string
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error desconocido al guardar la cita.');
+                }
+                showCustomAlert('Cita guardada con éxito.', 'Guardado Exitoso');
+                citaNombreInput.value = '';
+                citaHoraInput.value = '';
+                citaFechaInput.value = formatFecha(fechaActual); // Reset to today's date
+                currentRequisitos = []; // Clear requirements list
+                renderRequisitosList(currentRequisitos, requisitosListDisplay, false); // Clear display
+                fetchCitas();
+            } catch (error) {
+                console.error('Error saving cita:', error);
+                showCustomAlert(`No se pudo guardar la cita. Error: ${error.message}`, 'Error de Guardado');
+            }
+        });
+
+        async function toggleCitaCompletada(citaId) {
+            try {
+                const response = await fetch(`/api/citas/${citaId}/toggle_completada`, {
+                    method: 'PATCH',
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error desconocido al actualizar la cita.');
+                }
+                showCustomAlert('Estado de la cita actualizado.', 'Actualización Exitosa');
+                fetchCitas();
+            } catch (error) {
+                console.error('Error al cambiar estado de cita:', error);
+                showCustomAlert(`No se pudo actualizar la cita. Error: ${error.message}`, 'Error de Actualización');
+            }
+        }
+
+        // NEW: Function to toggle individual requirement checkbox
+        async function toggleRequisitoCompletado(citaId, requisitoIndex, requisitoText) {
+            try {
+                const response = await fetch(`/api/citas/${citaId}/toggle_requisito_completado`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ index: requisitoIndex })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error desconocido al actualizar el requisito.');
+                }
+                fetchCitas(); // Re-fetch to update all UI
+            } catch (error) {
+                console.error('Error al cambiar estado del requisito:', error);
+                showCustomAlert(`No se pudo actualizar el requisito "${requisitoText}". Error: ${error.message}`, 'Error de Actualización');
+            }
+        }
+
+
+        async function deleteCita(citaId) {
+            const confirmAction = await showCustomConfirm('¿Estás seguro de que quieres eliminar esta cita?');
+            if (confirmAction) {
+                try {
+                    const response = await fetch(`/api/citas/${citaId}`, {
+                        method: 'DELETE'
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Error al eliminar la cita');
+                    }
+                    showCustomAlert('Cita eliminada exitosamente.', 'Eliminación Exitosa');
+                    fetchCitas();
+                } catch (error) {
+                    console.error('Error al eliminar la cita:', error);
+                    showCustomAlert(`No se pudo eliminar la cita: ${error.message}`, 'Error de Eliminación');
+                }
+            }
+        }
+
+        function openEditCitaModal(cita) {
+            editCitaId.value = cita.id;
+            editCitaNombre.value = cita.nombre;
+            editCitaFecha.value = cita.fecha;
+            editCitaHora.value = cita.hora ? cita.hora.substring(0, 5) : '';
+            
+            // Populate edit requirements
+            editCurrentRequisitos = [];
+            if (cita.recordatorio) {
+                try {
+                    editCurrentRequisitos = JSON.parse(cita.recordatorio);
+                } catch (e) {
+                    console.error('Error parsing recordatorio for edit modal:', e, 'Raw data:', cita.recordatorio);
+                    editCurrentRequisitos = [];
+                }
+            }
+            renderRequisitosList(editCurrentRequisitos, editRequisitosListDisplay, false); // Render editable in modal
+            editCitaRequisitoInput.value = ''; // Clear input
+
+            editCitaModal.style.display = 'flex';
+
+            // Ensure min date is today for the edit modal as well
+            const today = new Date();
+            editCitaFecha.min = formatFecha(today);
+        }
+
+        saveEditCitaBtn.addEventListener('click', async () => {
+            const id = editCitaId.value;
+            const nombre = editCitaNombre.value.trim();
+            const fecha = editCitaFecha.value;
+            const hora = editCitaHora.value.trim();
+
+            if (!nombre || !fecha) {
+                showCustomAlert('El nombre y la fecha son obligatorios.', 'Campos Obligatorios');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/citas/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        nombre, 
+                        fecha, 
+                        hora: hora || null,
+                        recordatorio: JSON.stringify(editCurrentRequisitos) // Send updated requirements
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error desconocido al actualizar la cita.');
+                }
+                showCustomAlert('Cita actualizada con éxito.', 'Actualización Exitosa');
+                editCitaModal.style.display = 'none';
+                fetchCitas();
+            } catch (error) {
+                console.error('Error updating cita:', error);
+                showCustomAlert(`No se pudo actualizar la cita. Error: ${error.message}`, 'Error de Actualización');
+            }
+        });
+
+        cancelEditCitaBtn.addEventListener('click', () => {
+            editCitaModal.style.display = 'none';
+        });
+
+
+        // Custom Modal functions (GLOBAL)
+        function createModal(content) {
+            const modalOverlay = document.createElement('div');
+            modalOverlay.classList.add('fixed', 'inset-0', 'bg-black', 'bg-opacity-50', 'flex', 'items-center', 'justify-center', 'z-50');
+
+            const modalContent = document.createElement('div');
+            modalContent.classList.add('bg-white', 'p-6', 'rounded-lg', 'shadow-xl', 'max-w-md', 'mx-4', 'w-full');
+            modalContent.appendChild(content);
+
+            modalOverlay.appendChild(modalContent);
+
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) {
+                    modalOverlay.remove();
+                }
+            });
+            return modalOverlay;
+        }
+
+        function showCustomModal(message, title = 'Mensaje', type = 'alert') {
+            return new Promise((resolve) => {
+                const modalOverlay = document.getElementById('customModalOverlay');
+                const modalTitle = document.getElementById('customModalTitle');
+                const modalMessage = document.getElementById('customModalMessage');
+                const modalActions = document.getElementById('customModalActions');
+
+                modalTitle.textContent = title;
+                modalMessage.textContent = message;
+                modalActions.innerHTML = ''; // Clear previous buttons
+                
+                // Ensure the modal is initially hidden when setting up, and then displayed
+                modalOverlay.style.display = 'none';
+
+                if (type === 'alert') {
+                    const okButton = document.createElement('button');
+                    okButton.classList.add('bg-blue-500', 'hover:bg-blue-700', 'text-white', 'font-bold', 'py-2', 'px-4', 'rounded-full');
+                    okButton.textContent = 'Aceptar';
+                    okButton.addEventListener('click', () => {
+                        modalOverlay.style.display = 'none'; // Correctly reference modalOverlay
+                        resolve(true);
+                    });
+                    modalActions.appendChild(okButton);
+                } else if (type === 'confirm') {
+                    const yesButton = document.createElement('button');
+                    yesButton.classList.add('bg-green-500', 'hover:bg-green-700', 'text-white', 'font-bold', 'py-2', 'px-4', 'rounded-full');
+                    yesButton.textContent = 'Sí';
+                    yesButton.addEventListener('click', () => {
+                        modalOverlay.style.display = 'none'; // Correctly reference modalOverlay
+                        resolve(true);
+                    });
+                    const noButton = document.createElement('button');
+                    noButton.classList.add('bg-gray-500', 'hover:bg-gray-700', 'text-white', 'font-bold', 'py-2', 'px-4', 'rounded-full');
+                    noButton.textContent = 'No';
+                    noButton.addEventListener('click', () => {
+                        modalOverlay.style.display = 'none'; // Correctly reference modalOverlay
+                        resolve(false);
+                    });
+                    modalActions.appendChild(yesButton);
+                    modalActions.appendChild(noButton);
+                }
+
+                modalOverlay.style.display = 'flex'; // Display the modal after setting up buttons
+            });
+        }
+
+        function showCustomAlert(message, title = 'Mensaje') {
+            return showCustomModal(message, title, 'alert');
+        }
+
+        async function showCustomConfirm(message, title = 'Confirmación') {
+            return await showCustomModal(message, title, 'confirm');
+        }
+
+
+        document.addEventListener('DOMContentLoaded', () => {
+            displayFechaActual();
+            const today = new Date();
+            citaFechaInput.min = formatFecha(today);
+            citaFechaInput.value = formatFecha(today); // Establecer valor inicial a hoy
+            fetchCitas();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notas Rápidas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" xintegrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilos básicos para las notas */
+        body {
+            background-color: #f7fafc; /* Color de fondo claro de Tailwind */
+            font-family: 'Inter', sans-serif; /* Fuente recomendada */
+            color: #2d3748; /* Color de texto oscuro de Tailwind */
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            font-size: 2.25rem; /* text-4xl */
+            font-weight: bold;
+            color: #1a202c; /* text-gray-900 */
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #edf2f7; /* border-b-2 border-gray-200 */
+        }
+        .date-heading { /* Nuevo estilo para los títulos de fecha */
+            font-size: 1.75rem; /* text-3xl */
+            font-weight: 700; /* font-extrabold */
+            color: #4a5568; /* text-gray-700 */
+            margin-top: 25px;
+            margin-bottom: 15px;
+            padding-left: 10px;
+            border-left: 5px solid #63b3ed; /* border-l-4 border-blue-400 */
+        }
+        .notes-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 10px;
+            display: grid; /* Usar grid para un diseño de post-it */
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Columnas responsivas */
+            gap: 15px; /* Espacio entre post-its */
+        }
+        .note-item {
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-height: 120px; /* Altura mínima para post-its */
+            justify-content: space-between; /* Para empujar el botón de eliminar hacia abajo */
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        .note-item:hover {
+            transform: translateY(-5px); /* Efecto hover */
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        .note-header {
+            display: flex;
+            justify-content: flex-end; /* Alinear botón de eliminar a la derecha */
+            margin-bottom: 5px;
+        }
+        /* Eliminada .note-date ya que no se usará individualmente */
+        .note-text {
+            font-size: 1.1em;
+            word-wrap: break-word; /* Para asegurar que el texto largo se ajuste */
+            color: #333;
+            flex-grow: 1; /* Para que el texto ocupe el espacio disponible */
+        }
+        .btn-delete-note {
+            background-color: #ef4444; /* red-500 */
+            color: white;
+            border: none;
+            border-radius: 50%; /* Hacerlo circular */
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.2s, transform 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .btn-delete-note:hover {
+            background-color: #dc2626; /* red-600 */
+            transform: scale(1.1);
+        }
+        .navigation-notes {
+            margin-top: 30px;
+            text-align: center;
+        }
+        .navigation-notes .boton {
+            background-color: #4299e1; /* blue-500 */
+            color: white;
+            padding: 12px 25px;
+            border-radius: 8px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0 10px;
+            font-weight: 600;
+            transition: background-color 0.2s, transform 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .navigation-notes .boton:hover {
+            background-color: #3182ce; /* blue-600 */
+            transform: translateY(-2px);
+        }
+
+        /* Custom Modal Styles (Tailwind-compatible) */
+        .custom-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+        .custom-modal-content {
+            background-color: white;
+            padding: 2.5rem; /* p-10 */
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            animation: fadeInScale 0.3s ease-out;
+        }
+        .custom-modal-content h3 {
+            font-size: 1.875rem; /* text-3xl */
+            font-weight: bold;
+            margin-bottom: 1rem; /* mb-4 */
+            color: #2d3748; /* text-gray-800 */
+        }
+        .custom-modal-content p {
+            font-size: 1.125rem; /* text-lg */
+            color: #4a5568; /* text-gray-700 */
+            margin-bottom: 1.5rem; /* mb-6 */
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: center;
+            gap: 1rem; /* gap-4 */
+        }
+        .modal-actions .boton {
+            padding: 0.75rem 1.5rem; /* px-6 py-3 */
+            border-radius: 9999px; /* rounded-full */
+            font-weight: 600; /* font-semibold */
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .modal-actions .boton:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .modal-actions .boton:first-child {
+            background-color: #48bb78; /* green-500 */
+        }
+        .modal-actions .boton:first-child:hover {
+            background-color: #38a169; /* green-600 */
+        }
+        .modal-actions .cancel-button {
+            background-color: #a0aec0; /* gray-500 */
+        }
+        .modal-actions .cancel-button:hover {
+            background-color: #718096; /* gray-600 */
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Notas Rápidas</h1>
+        <ul id="notesList" class="notes-list">
+            <li class="mensaje-info">Cargando notas...</li>
+        </ul>
+
+        <div class="navigation-notes">
+            <a href="/" class="boton">
+                <i class="fas fa-home"></i>
+                <span>Volver a la Agenda</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Custom Alert/Confirm Modal HTML -->
+    <div id="customModalOverlay" class="custom-modal-overlay" style="display:none;">
+        <div class="custom-modal-content">
+            <h3 id="customModalTitle"></h3>
+            <p id="customModalMessage"></p>
+            <div class="modal-actions" id="customModalActions">
+                <!-- Buttons will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const notesList = document.getElementById('notesList');
+
+        // Función para mostrar un modal personalizado (reemplazo de alert/confirm)
+        function showCustomModal(message, title = 'Mensaje', type = 'alert') {
+            return new Promise((resolve) => {
+                const modalOverlay = document.getElementById('customModalOverlay');
+                const modalTitle = document.getElementById('customModalTitle');
+                const modalMessage = document.getElementById('customModalMessage');
+                const modalActions = document.getElementById('customModalActions');
+
+                modalTitle.textContent = title;
+                modalMessage.textContent = message;
+                modalActions.innerHTML = ''; // Limpiar botones anteriores
+
+                if (type === 'alert') {
+                    const okButton = document.createElement('button');
+                    okButton.classList.add('boton');
+                    okButton.textContent = 'Aceptar';
+                    okButton.addEventListener('click', () => {
+                        modalOverlay.style.display = 'none';
+                        resolve(true);
+                    });
+                    modalActions.appendChild(okButton);
+                } else if (type === 'confirm') {
+                    const yesButton = document.createElement('button');
+                    yesButton.classList.add('boton');
+                    yesButton.textContent = 'Sí';
+                    yesButton.addEventListener('click', () => {
+                        modalOverlay.style.display = 'none';
+                        resolve(true);
+                    });
+                    const noButton = document.createElement('button');
+                    noButton.classList.add('boton', 'cancel-button');
+                    noButton.textContent = 'No';
+                    noButton.addEventListener('click', () => {
+                        modalOverlay.style.display = 'none';
+                        resolve(false);
+                    });
+                    modalActions.appendChild(yesButton);
+                    modalActions.appendChild(noButton);
+                }
+
+                modalOverlay.style.display = 'flex';
+            });
+        }
+
+        // Wrapper para showCustomModal para usar como alert
+        function showCustomAlert(message, title = 'Mensaje') {
+            return showCustomModal(message, title, 'alert');
+        }
+
+        // Wrapper para showCustomModal para usar como confirm
+        async function showCustomConfirm(message, title = 'Confirmación') {
+            return await showCustomModal(message, title, 'confirm');
+        }
+
+        // Función para generar un color pastel aleatorio
+        function getRandomPastelColor() {
+            const hue = Math.floor(Math.random() * 360); // 0-359
+            const saturation = Math.floor(Math.random() * 20) + 70; // 70-90% para colores no demasiado saturados
+            const lightness = Math.floor(Math.random() * 10) + 80; // 80-90% para tonos claros
+            return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+        }
+
+        async function fetchNotas() {
+            notesList.innerHTML = '<li class="mensaje-info">Cargando notas...</li>';
+            try {
+                const response = await fetch('/api/notas');
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error al cargar las notas.');
+                }
+                const notas = await response.json();
+                renderNotas(notas);
+            } catch (error) {
+                console.error('Error al cargar notas:', error);
+                notesList.innerHTML = `<li class="mensaje-info" style="color: #dc3545;">Error: ${error.message}. No se pudieron cargar las notas.</li>`;
+                showCustomAlert(`No se pudieron cargar las notas: ${error.message}`, 'Error de Carga');
+            }
+        }
+
+        function renderNotas(notas) {
+            notesList.innerHTML = '';
+            if (notas.length === 0) {
+                notesList.innerHTML = '<li class="mensaje-info">No hay notas rápidas.</li>';
+                return;
+            }
+
+            // Agrupar notas por fecha
+            const notasAgrupadasPorFecha = {};
+            notas.forEach(nota => {
+                if (!notasAgrupadasPorFecha[nota.fecha]) {
+                    notasAgrupadasPorFecha[nota.fecha] = [];
+                }
+                notasAgrupadasPorFecha[nota.fecha].push(nota);
+            });
+
+            // Obtener las fechas ordenadas (más reciente primero)
+            const fechasOrdenadas = Object.keys(notasAgrupadasPorFecha).sort((a, b) => new Date(b) - new Date(a));
+
+            fechasOrdenadas.forEach(fecha => {
+                // Crear el título de la fecha
+                const fechaTitle = document.createElement('h2');
+                fechaTitle.classList.add('date-heading');
+                // Formatear la fecha para una mejor lectura
+                const dateObj = new Date(fecha + 'T00:00:00'); // Añadir T00:00:00 para evitar problemas de zona horaria
+                const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                fechaTitle.textContent = dateObj.toLocaleDateString('es-ES', options);
+                notesList.appendChild(fechaTitle);
+
+                const notasDelDia = notasAgrupadasPorFecha[fecha];
+                notasDelDia.forEach(nota => {
+                    const li = document.createElement('li');
+                    li.classList.add('note-item');
+                    li.dataset.id = nota.id;
+                    li.style.backgroundColor = getRandomPastelColor(); // Asignar color aleatorio
+
+                    const headerDiv = document.createElement('div');
+                    headerDiv.classList.add('note-header');
+
+                    // La fecha individual se elimina aquí, solo el botón de eliminar
+                    const deleteButton = document.createElement('button');
+                    deleteButton.classList.add('btn-delete-note');
+                    deleteButton.innerHTML = '<i class="fas fa-trash"></i>';
+                    deleteButton.title = 'Eliminar Nota';
+                    deleteButton.addEventListener('click', () => deleteNota(nota.id));
+
+                    headerDiv.appendChild(deleteButton);
+
+                    const textP = document.createElement('p');
+                    textP.classList.add('note-text');
+                    textP.textContent = nota.texto;
+
+                    li.appendChild(headerDiv);
+                    li.appendChild(textP);
+                    notesList.appendChild(li);
+                });
+            });
+        }
+
+        async function deleteNota(noteId) {
+            const confirmAction = await showCustomConfirm('¿Estás seguro de que quieres eliminar esta nota?');
+            if (confirmAction) {
+                try {
+                    const response = await fetch(`/api/notas/${noteId}`, {
+                        method: 'DELETE'
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Error al eliminar la nota.');
+                    }
+                    showCustomAlert('Nota eliminada con éxito.', 'Eliminación Exitosa');
+                    fetchNotas(); // Recargar la lista
+                } catch (error) {
+                    console.error('Error al eliminar nota:', error);
+                    showCustomAlert(`No se pudo eliminar la nota: ${error.message}`, 'Error de Eliminación');
+                }
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchNotas);
+    </script>
+</body>
+</html>

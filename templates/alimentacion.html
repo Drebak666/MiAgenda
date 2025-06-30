@@ -1,0 +1,2627 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alimentación - Mi Agenda</title>
+    <!-- Favicon para el icono del acceso directo en móvil -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/agenda_icon.png') }}">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Fuentes y estilos base para que coincidan con el resto de la app */
+        html, body {
+            height: 100%; /* Ensures html and body take full viewport height */
+            overflow-x: hidden; /* Prevents horizontal scroll from overflowing elements */
+            overflow-y: auto; /* Enables vertical scrolling if content exceeds height */
+            -webkit-overflow-scrolling: touch; /* For smoother scrolling on iOS devices */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* A light grey consistent with the app's background */
+            color: #333;
+            min-height: 100vh; /* Ensures the body is at least the height of the viewport */
+        }
+
+        /* Main container to center content */
+        .food-container {
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 10px; /* Reduced padding for smaller screens */
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            min-height: calc(100vh - 40px); /* Adjust min-height to account for top/bottom margin */
+            /* Ensure the container itself doesn't cause overflow on very small screens */
+            width: calc(100% - 20px); /* Account for padding */
+            box-sizing: border-box; /* Include padding in width calculation */
+        }
+
+        /* Adjust padding for larger screens */
+        @media (min-width: 640px) { /* sm breakpoint */
+            .food-container {
+                padding: 20px;
+                width: auto; /* Revert to auto width on larger screens */
+            }
+        }
+
+        h1 {
+            font-size: 2.25rem; /* text-4xl */
+            font-weight: bold;
+            color: #1a202c; /* text-gray-900 */
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #edf2f7; /* border-b-2 border-gray-200 */
+        }
+
+        /* Styles for section headers */
+        h2 {
+            font-size: 1.5rem; /* text-2xl, slightly smaller for mobile */
+            font-weight: bold;
+            color: #4a5568; /* text-gray-700 */
+            margin-top: 25px;
+            margin-bottom: 15px;
+            padding-left: 10px;
+            border-left: 4px solid #63b3ed; /* border-l-4 border-blue-400 */
+        }
+        @media (min-width: 640px) { /* sm breakpoint */
+            h2 {
+                font-size: 1.75rem; /* text-3xl on larger screens */
+            }
+        }
+
+        /* Form section for adding ingredients and recipes */
+        .form-section {
+            background-color: #f7fafc; /* gray-50 */
+            padding: 15px; /* Adjusted padding */
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+        }
+        @media (min-width: 640px) {
+            .form-section {
+                padding: 20px;
+            }
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #2d3748; /* gray-800 */
+            font-size: 0.95em; /* Slightly smaller label font */
+        }
+
+        .form-group input[type="text"],
+        .form-group input[type="number"],
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e0; /* gray-300 */
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 1em;
+            color: #4a5568; /* gray-700 */
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-group input[type="text"]:focus,
+        .form-group input[type="number"]:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            border-color: #63b3ed; /* blue-400 */
+            box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.5); /* blue-200 with opacity */
+            outline: none;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Flex container for form groups, allowing wrap on small screens */
+        .form-group .flex {
+            display: flex;
+            flex-direction: column; /* Stack vertically by default */
+            gap: 10px;
+        }
+
+        @media (min-width: 640px) { /* sm breakpoint */
+            .form-group .flex {
+                flex-direction: row; /* Horizontal on larger screens */
+                flex-wrap: wrap; /* Allow wrapping for more complex layouts */
+            }
+            .form-group .flex > div {
+                flex: 1;
+                min-width: 150px; /* Ensure elements don't crush too much */
+            }
+        }
+        
+        /* Specific styling for the new ingredient form's supermarket and price inputs */
+        .form-group.flex-col.sm\:flex-row > div:nth-child(2) {
+            flex-grow: 1; /* Allow it to grow in the row */
+        }
+
+
+        /* Styles for action buttons */
+        .btn-primary, .btn-secondary, .btn-danger {
+            color: white;
+            padding: 10px 20px; /* Slightly reduced padding for mobile */
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: background-color 0.2s, transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            width: 100%; /* Full width on small screens */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 10px; /* Add margin bottom for stacking */
+        }
+        .btn-primary { background-color: #4299e1; } /* blue-500 */
+        .btn-secondary { background-color: #a0aec0; } /* gray-500 */
+        .btn-danger { background-color: #ef4444; } /* red-500 */
+
+        .btn-primary:hover { background-color: #3182ce; } /* blue-600 */
+        .btn-secondary:hover { background-color: #718096; } /* gray-600 */
+        .btn-danger:hover { background-color: #dc2626; } /* red-600 */
+
+        /* Responsive button adjustments */
+        @media (min-width: 640px) { /* sm breakpoint */
+            .btn-primary, .btn-secondary, .btn-danger {
+                width: auto; /* Auto width on larger screens */
+                padding: 12px 25px; /* Restore larger padding */
+                margin-bottom: 0; /* Remove margin bottom for inline display */
+            }
+            .btn-primary:hover, .btn-secondary:hover, .btn-danger:hover {
+                transform: translateY(-1px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.25);
+            }
+            /* Specific adjustment for the add/cancel buttons in ingredient form */
+            .form-group.flex-col.sm\:flex-row .flex-shrink-0 button {
+                width: 40px; /* Keep them small and square */
+                height: 40px;
+                padding: 0; /* Remove internal padding */
+            }
+        }
+
+
+        /* List of items */
+        .list-section {
+            margin-top: 20px;
+        }
+
+        .list-section ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        /* Updated li styling for flex layout */
+        .list-section li {
+            background-color: #fff;
+            padding: 15px; /* Adjust padding for better spacing with new structure */
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            margin-bottom: 10px;
+            display: flex; /* Make li a flex container */
+            flex-direction: column; /* Stack vertically by default for small screens */
+            align-items: flex-start; /* Align content to the start */
+            justify-content: space-between; /* Space between content and actions on larger screens */
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            position: relative;
+        }
+
+        @media (min-width: 640px) { /* sm breakpoint */
+            .list-section li {
+                flex-direction: row; /* Layout horizontally on larger screens */
+                align-items: center; /* Center items vertically */
+            }
+        }
+        
+        .list-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%; /* Ensure it takes full width within its parent flex item */
+        }
+
+        /* Redefine .list-item-actions for flex layout */
+        .list-item-actions {
+            display: flex;
+            gap: 10px;
+            flex-shrink: 0;
+            width: 100%; /* Take full width on small screens */
+            justify-content: flex-end; /* Align buttons to the right on small screens */
+            margin-top: 10px; /* Add margin for stacking */
+        }
+
+        @media (min-width: 640px) { /* sm breakpoint */
+            .list-item-actions {
+                width: auto; /* Shrink to content width on larger screens */
+                margin-top: 0; /* Remove top margin on larger screens */
+                margin-left: 1rem; /* Add left margin to separate from content */
+            }
+        }
+
+
+        .list-item-actions button {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            transition: background-color 0.2s;
+        }
+
+        .ingredient-details, .recipe-details {
+            font-size: 0.9em; /* Slightly smaller font for details */
+            color: #4a5568;
+            margin-top: 5px;
+            display: flex; /* Use flexbox for responsive details */
+            flex-wrap: wrap; /* Allow details to wrap */
+            gap: 5px 10px; /* Smaller gaps for mobile */
+        }
+        @media (min-width: 640px) {
+            .ingredient-details, .recipe-details {
+                font-size: 0.95em; /* Restore original font size on larger screens */
+                gap: 8px 15px; /* Restore original gaps */
+            }
+        }
+
+        .ingredient-details span, .recipe-details span {
+            display: inline-block;
+            color: #667eea; /* indigo-500 */
+            font-weight: 500;
+        }
+        .ingredient-details strong, .recipe-details strong {
+            color: #2d3748;
+        }
+
+        /* Styles for recipe ingredient list */
+        .recipe-ingredients-list {
+            list-style: disc;
+            padding-left: 20px;
+            margin-top: 10px;
+            color: #4a5568;
+        }
+
+        .recipe-ingredients-list li {
+            background-color: transparent; /* Nullify general li background */
+            box-shadow: none; /* Nullify general li shadow */
+            padding: 5px 0; /* Adjust padding */
+            margin-bottom: 0; /* Remove bottom margin */
+            align-items: flex-start; /* Align to start if content is multi-line */
+        }
+
+        /* Accordion styles */
+        .accordion-item {
+            border: 1px solid #e2e8f0; /* gray-200 */
+            border-radius: 8px;
+            margin-bottom: 10px;
+            overflow: hidden;
+            background-color: #ffffff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .accordion-header {
+            background-color: #f7fafc; /* gray-50 */
+            padding: 15px 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            color: #2d3748;
+            border-bottom: 1px solid #e2e8f0;
+            transition: background-color 0.2s;
+        }
+
+        .accordion-header:hover {
+            background-color: #edf2f7; /* gray-100 */
+        }
+
+        .accordion-content {
+            padding: 0 20px;
+            max-height: 0; /* Initial collapsed height */
+            overflow: hidden; /* Keeps hidden initially */
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+            box-sizing: content-box;
+        }
+
+        .accordion-item.active .accordion-content {
+            max-height: 9999px; /* Set to a very large value */
+            padding: 15px 20px;
+            overflow-y: auto; /* Enable scrolling for the accordion content itself */
+        }
+
+        .accordion-item.active .accordion-header {
+            border-bottom: none;
+        }
+
+        .accordion-header .arrow {
+            transition: transform 0.3s ease-out;
+        }
+
+        .accordion-item.active .accordion-header .arrow {
+            transform: rotate(90deg);
+        }
+
+        /* Info or error messages */
+        .mensaje-info {
+            background-color: #e2e8f0; /* gray-200 */
+            color: #2d3748; /* gray-800 */
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .mensaje-error {
+            background-color: #fed7d7; /* red-200 */
+            color: #c53030; /* red-800 */
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .flex-container {
+            display: flex;
+            flex-wrap: wrap; /* Allows elements to wrap on small screens */
+            gap: 1rem; /* Space between elements */
+            margin-bottom: 1rem;
+        }
+
+        .flex-item {
+            flex: 1 1 100%; /* Stacks items by default on small screens */
+            min-width: unset; /* Remove min-width to allow full stacking */
+        }
+
+        @media (min-width: 640px) { /* sm breakpoint */
+            .flex-item {
+                flex: 1; /* Allows elements to expand */
+                min-width: 150px; /* Minimum width to prevent them from crushing too much */
+            }
+        }
+
+        /* Style for the ingredient list when adding/editing recipes */
+        .ingredient-recipe-item {
+            display: flex;
+            flex-direction: column; /* Stack on mobile */
+            justify-content: space-between;
+            align-items: flex-start; /* Align to start */
+            padding: 8px 0;
+            border-bottom: 1px dashed #e2e8f0;
+        }
+        @media (min-width: 640px) {
+            .ingredient-recipe-item {
+                flex-direction: row; /* Row on larger screens */
+                align-items: center; /* Center vertically */
+            }
+        }
+        .ingredient-recipe-item:last-child {
+            border-bottom: none;
+        }
+        .ingredient-recipe-item span {
+            flex-grow: 1;
+            margin-right: 10px;
+            margin-bottom: 5px; /* Add margin for stacking */
+        }
+        @media (min-width: 640px) {
+            .ingredient-recipe-item span {
+                margin-bottom: 0;
+            }
+        }
+        .ingredient-recipe-item input[type="number"] {
+            width: 100%; /* Full width on mobile */
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #cbd5e0;
+            margin-bottom: 5px; /* Add margin for stacking */
+        }
+        @media (min-width: 640px) {
+            .ingredient-recipe-item input[type="number"] {
+                width: 80px; /* Restore original width */
+                margin-bottom: 0;
+            }
+        }
+        .ingredient-recipe-item button {
+            background-color: #ef4444; /* red-500 */
+            color: white;
+            border: none;
+            padding: 5px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            align-self: flex-end; /* Align button to the right when stacked */
+        }
+        .ingredient-recipe-item button:hover {
+            background-color: #dc2626; /* red-600 */
+        }
+
+        /* Specific styles for the weekly menu section */
+        .weekly-menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Adjusted minmax for better mobile fit */
+            gap: 15px; /* Reduced gap for smaller screens */
+            margin-top: 20px;
+        }
+        @media (min-width: 640px) { /* sm breakpoint */
+            .weekly-menu-grid {
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Original minmax for larger screens */
+                gap: 20px;
+            }
+        }
+
+
+        .day-card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            padding: 15px; /* Adjusted padding */
+            text-align: center;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        @media (min-width: 640px) {
+            .day-card {
+                padding: 20px;
+            }
+        }
+
+        .day-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+        }
+
+        .day-card h3 {
+            font-size: 1.3rem; /* Slightly smaller for mobile */
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        @media (min-width: 640px) {
+            .day-card h3 {
+                font-size: 1.5rem;
+                margin-bottom: 15px;
+            }
+        }
+
+        .day-card .meal-input-select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            font-size: 0.9em; /* Slightly smaller font */
+            background-color: white;
+        }
+        @media (min-width: 640px) {
+            .day-card .meal-input-select {
+                padding: 10px;
+                font-size: 0.95em;
+            }
+        }
+
+        .day-card .meal-input-select:focus {
+            border-color: #63b3ed;
+            box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.5);
+            outline: none;
+        }
+
+        .daily-totals {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.85em; /* Smaller font for mobile */
+            text-align: left;
+            color: #4a5568;
+        }
+        @media (min-width: 640px) {
+            .daily-totals {
+                font-size: 0.9em;
+            }
+        }
+
+        .daily-totals p {
+            margin-bottom: 5px;
+        }
+
+        .weekly-totals-summary {
+            background-color: #e0f2fe; /* blue-100 */
+            border: 1px solid #90cdf4; /* blue-300 */
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 30px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .weekly-totals-summary h3 {
+            font-size: 1.5rem; /* text-2xl for mobile */
+            font-weight: bold;
+            color: #2b6cb0; /* blue-800 */
+            margin-bottom: 10px;
+        }
+        @media (min-width: 640px) {
+            .weekly-totals-summary h3 {
+                font-size: 1.75rem; /* text-3xl for larger screens */
+                margin-bottom: 15px;
+            }
+        }
+
+        .weekly-totals-summary p {
+            font-size: 1.1rem; /* text-lg for mobile */
+            font-weight: 600;
+            color: #1a365d; /* blue-900 */
+            margin-bottom: 6px;
+        }
+        @media (min-width: 640px) {
+            .weekly-totals-summary p {
+                font-size: 1.25rem; /* text-xl for larger screens */
+                margin-bottom: 8px;
+            }
+        }
+
+        .weekly-totals-summary p strong {
+            color: #c05621; /* orange-700 */
+        }
+
+
+        .save-menu-btn-container {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        /* Custom Modal Styles (Tailwind-compatible) */
+        .custom-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+        .custom-modal-content {
+            background-color: white;
+            padding: 1.5rem; /* p-6 for mobile */
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            max-width: 90%; /* Max width 90% for mobile */
+            width: 500px; /* Original width for larger screens */
+            text-align: center;
+            animation: fadeInScale 0.3s ease-out;
+        }
+        @media (min-width: 640px) {
+            .custom-modal-content {
+                padding: 2.5rem; /* p-10 */
+                max-width: 500px; /* Revert to specific max width */
+            }
+        }
+        .custom-modal-content h3 {
+            font-size: 1.5rem; /* text-2xl for mobile */
+            font-weight: bold;
+            margin-bottom: 0.75rem; /* mb-3 */
+            color: #2d3748; /* text-gray-800 */
+        }
+        @media (min-width: 640px) {
+            .custom-modal-content h3 {
+                font-size: 1.875rem; /* text-3xl */
+                margin-bottom: 1rem; /* mb-4 */
+            }
+        }
+        .custom-modal-content p {
+            font-size: 1rem; /* text-base for mobile */
+            color: #4a5568; /* text-gray-700 */
+            margin-bottom: 1rem; /* mb-4 */
+        }
+        @media (min-width: 640px) {
+            .custom-modal-content p {
+                font-size: 1.125rem; /* text-lg */
+                margin-bottom: 1.5rem; /* mb-6 */
+            }
+        }
+        .modal-actions {
+            display: flex;
+            flex-direction: column; /* Stack buttons on mobile */
+            justify-content: center;
+            gap: 0.75rem; /* gap-3 */
+        }
+        @media (min-width: 640px) {
+            .modal-actions {
+                flex-direction: row; /* Row on larger screens */
+                gap: 1rem; /* gap-4 */
+            }
+        }
+        .modal-actions .boton {
+            padding: 0.75rem 1.5rem; /* px-6 py-3 */
+            border-radius: 9999px; /* rounded-full */
+            font-weight: 600; /* font-semibold */
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            width: 100%; /* Full width for stacked buttons */
+        }
+        @media (min-width: 640px) {
+            .modal-actions .boton {
+                width: auto; /* Auto width on larger screens */
+            }
+        }
+        .modal-actions .boton:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .modal-actions .boton:first-child {
+            background-color: #48bb78; /* green-500 */
+        }
+        .modal-actions .boton:first-child:hover {
+            background-color: #38a169; /* green-600 */
+        }
+        .modal-actions .cancel-button {
+            background-color: #a0aec0; /* gray-500 */
+        }
+        .modal-actions .cancel-button:hover {
+            background-color: #718096; /* gray-600 */
+        }
+
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        /* Styles for count badges and some transitions */
+        .button-count, .button-nav-count {
+            position: absolute;
+            top: 0;
+            right: 0;
+            transform: translate(50%, -50%); /* Adjust badge position */
+            background-color: #ef4444; /* Tailwind Red */
+            color: white;
+            border-radius: 9999px; /* Fully rounded */
+            padding: 0.2em 0.5em; /* Smaller padding */
+            font-size: 0.7em; /* Smaller font size */
+            font-weight: bold;
+            min-width: 1.5em; /* Ensure minimum width for 1 or 2 digit numbers */
+            text-align: center;
+            line-height: 1; /* Aligns text vertically */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        @media (min-width: 640px) {
+            .button-count, .button-nav-count {
+                padding: 0.25em 0.6em;
+                font-size: 0.75em;
+                min-width: 1.75em;
+            }
+        }
+
+        /* New table of prices per supermarket in ingredients */
+        .supermarket-prices-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.85em; /* Smaller font for mobile */
+        }
+        /* Wrapper to enable horizontal scrolling for the table on small screens */
+        .supermarket-prices-table-wrapper {
+            overflow-x: auto; /* Enable horizontal scrolling */
+            -webkit-overflow-scrolling: touch; /* Smoother scrolling on iOS */
+        }
+
+        .supermarket-prices-table th, .supermarket-prices-table td {
+            border: 1px solid #e2e8f0;
+            padding: 8px;
+            text-align: left;
+            white-space: nowrap; /* Prevent content from wrapping inside cells */
+        }
+        .supermarket-prices-table th {
+            background-color: #edf2f7;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        .supermarket-prices-table td button {
+            padding: 4px 8px;
+            font-size: 0.8em;
+        }
+        
+        /* Styles for the new compact supermarket section */
+        .compact-supermarket-input {
+            display: flex;
+            flex-direction: column; /* Stack on mobile */
+            gap: 10px;
+            align-items: stretch; /* Stretch items to fill width */
+            margin-bottom: 15px;
+        }
+        @media (min-width: 640px) {
+            .compact-supermarket-input {
+                flex-direction: row; /* Row on larger screens */
+                align-items: center;
+            }
+        }
+
+        .compact-supermarket-input input {
+            flex-grow: 1;
+            max-width: none; /* Remove max-width on mobile */
+            padding: 8px;
+            border-radius: 6px;
+            width: 100%; /* Full width input */
+        }
+        @media (min-width: 640px) {
+            .compact-supermarket-input input {
+                max-width: 200px; /* Limit input width on larger screens */
+                width: auto;
+            }
+        }
+
+        .compact-supermarket-input button {
+            padding: 8px 12px; /* Reduce padding */
+            border-radius: 6px; /* Keep rounded */
+            width: 100%; /* Full width for button */
+            height: auto; /* Auto height */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1em; /* Icon size */
+        }
+        @media (min-width: 640px) {
+            .compact-supermarket-input button {
+                width: 40px; /* Make square */
+                height: 40px; /* Make square */
+                font-size: 1.2em; /* Restore icon size */
+            }
+        }
+
+        .supermarkets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); /* 2-3 responsive columns */
+            gap: 8px; /* Smaller gap */
+            margin-top: 10px;
+        }
+        @media (min-width: 640px) {
+            .supermarkets-grid {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* Original minmax */
+                gap: 10px;
+            }
+        }
+
+        .supermarket-tag {
+            background-color: #e0f2fe; /* blue-100 */
+            color: #2b6cb0; /* blue-800 */
+            padding: 6px 10px; /* Smaller padding */
+            border-radius: 9999px; /* rounded-full */
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.8em; /* Smaller font */
+            font-weight: 500;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        @media (min-width: 640px) {
+            .supermarket-tag {
+                padding: 8px 12px;
+                font-size: 0.85em;
+            }
+        }
+
+        .supermarket-tag .delete-btn {
+            background: none;
+            border: none;
+            color: #2b6cb0;
+            font-size: 0.9em; /* Smaller icon */
+            cursor: pointer;
+            margin-left: 5px; /* Smaller margin */
+            transition: color 0.2s;
+        }
+        @media (min-width: 640px) {
+            .supermarket-tag .delete-btn {
+                font-size: 1em;
+                margin-left: 8px;
+            }
+        }
+
+        .supermarket-tag .delete-btn:hover {
+            color: #c53030; /* red-800 */
+        }
+
+        /* Styles for collapsible ingredient details */
+        .collapsible-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+            box-sizing: content-box;
+            padding: 0 5px; /* Adjust padding so it's not excessive */
+        }
+
+        .collapsible-details.active {
+            max-height: 9999px; /* Use a very large value to ensure all content is visible */
+            padding: 10px 5px; /* Ensure padding when open */
+            overflow-y: auto; /* Allow vertical scrolling if content exceeds height */
+        }
+
+        /* Flex container for the price inputs and add button */
+        .collapsible-details .flex.mt-3.gap-2.items-center {
+            flex-direction: column; /* Stack inputs and button on mobile */
+            align-items: stretch; /* Stretch items to fill width */
+        }
+
+        .collapsible-details .flex.mt-3.gap-2.items-center input,
+        .collapsible-details .flex.mt-3.gap-2.items-center select,
+        .collapsible-details .flex.mt-3.gap-2.items-center button {
+            width: 100%; /* Full width for inputs/selects/button */
+            margin-bottom: 8px; /* Add some space between stacked items */
+        }
+
+        @media (min-width: 768px) { /* md breakpoint for horizontal price inputs */
+            .collapsible-details .flex.mt-3.gap-2.items-center {
+                flex-direction: row; /* Horizontal on larger screens */
+                align-items: center;
+            }
+            .collapsible-details .flex.mt-3.gap-2.items-center input,
+            .collapsible-details .flex.mt-3.gap-2.items-center select {
+                width: auto; /* Auto width for specific inputs */
+                flex-grow: 1; /* Allow them to grow */
+                margin-bottom: 0; /* Remove margin */
+            }
+            .collapsible-details .flex.mt-3.gap-2.items-center button {
+                width: auto; /* Auto width for button */
+                margin-bottom: 0;
+            }
+            /* Specific width adjustments for price inputs on larger screens */
+            #price-input, #price-calories, #price-proteins, #price-standard-quantity {
+                 width: 24px; /* Restore original smaller widths */
+            }
+            #price-unit {
+                width: 20px; /* Restore original smaller width */
+            }
+        }
+
+
+        .toggle-details-btn {
+            background: none;
+            border: none;
+            color: #4a5568;
+            font-size: 1em;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .toggle-details-btn:hover {
+            background-color: #e2e8f0;
+        }
+
+        .toggle-details-btn .toggle-arrow {
+            transition: transform 0.3s ease-out;
+        }
+
+        .collapsible-details-container.active .toggle-details-btn .toggle-arrow {
+            transform: rotate(90deg); /* For fa-chevron-right */
+        }
+    </style>
+</head>
+<body>
+    <div class="food-container">
+        <h1>Gestión de Alimentación</h1>
+
+        <!-- Accordion for Ingredients (now includes Supermarkets) -->
+        <div class="accordion-item" id="ingredientAccordion">
+            <div class="accordion-header">
+                Ingredientes y Supermercados
+                <i class="fas fa-chevron-right arrow"></i>
+            </div>
+            <div class="accordion-content">
+                <!-- Compact Supermarket Section -->
+                <div class="form-section mb-6">
+                    <h2>Añadir y Gestionar Supermercados</h2>
+                    <div class="compact-supermarket-input">
+                        <input type="text" id="supermarketName" placeholder="Nombre del Supermercado" class="w-full p-2 border rounded-md text-sm">
+                        <button id="addSupermarketBtn" class="btn-primary">
+                            <i class="fas fa-plus"></i> 
+                        </button>
+                    </div>
+                    <div class="supermarkets-grid" id="supermarketsList">
+                        <!-- Supermarkets will be rendered here -->
+                        <div class="mensaje-info col-span-full">Cargando supermercados...</div>
+                    </div>
+                </div>
+
+                <!-- Add/Edit Ingredient Section -->
+                <div class="form-section">
+                    <h2>
+                        <span id="ingredientFormTitle">Añadir Nuevo Ingrediente</span>
+                    </h2>
+                    <!-- Adjusted form-group to include supermarket select and price input -->
+                    <div class="form-group flex flex-col sm:flex-row items-end gap-2"> <!-- Adjusted for responsiveness -->
+                        <div class="flex-grow w-full"> <!-- Ensure it takes full width when stacking -->
+                            <label for="ingredientName">Nombre del Ingrediente:</label>
+                            <input type="text" id="ingredientName" placeholder="Ej: Arroz largo" class="w-full p-2 border rounded-md">
+                        </div>
+                        <!-- New inputs for supermarket and price -->
+                        <div id="supermarketPriceInputGroup" class="flex-grow flex flex-col sm:flex-row gap-2 w-full"> <!-- Added this div to wrap -->
+                            <div class="flex-grow w-full">
+                                <label for="ingredientSupermarketSelect">Tienda (opcional):</label>
+                                <select id="ingredientSupermarketSelect" class="w-full p-2 border rounded-md text-sm">
+                                    <option value="">Selecciona (opcional)</option>
+                                    <!-- Supermarkets will be loaded here dynamically -->
+                                </select>
+                            </div>
+                            <div class="flex-grow w-full">
+                                <label for="ingredientPrice">Precio (€):</label>
+                                <input type="number" id="ingredientPrice" step="0.01" value="0.00" placeholder="Precio">
+                            </div>
+                        </div> <!-- End of added div -->
+                        <!-- Buttons at the end of the row, always there -->
+                        <div class="flex-shrink-0 flex items-end gap-2 w-full sm:w-auto"> 
+                            <button id="addIngredientBtn" class="btn-primary flex-grow sm:flex-grow-0 sm:w-10 sm:h-10 p-0 text-lg">
+                                <i class="fas fa-plus"></i> <span class="sm:hidden">Añadir</span>
+                            </button>
+                            <button id="cancelEditIngredientBtn" class="btn-secondary flex-grow sm:flex-grow-0 sm:w-10 sm:h-10 p-0 text-lg" style="display:none;">
+                                <i class="fas fa-times"></i> <span class="sm:hidden">Cancelar</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Existing fields for Kcal, Prot, Cant Estándar, Unid - these will still be the base properties -->
+                    <div class="form-group flex-container">
+                        <div class="flex-item">
+                            <label for="ingredientCalories">Kcal/100g (base):</label>
+                            <input type="number" id="ingredientCalories" step="0.1" value="0.0">
+                        </div>
+                        <div class="flex-item">
+                            <label for="ingredientProteins">Prot/100g (base):</label>
+                            <input type="number" id="ingredientProteins" step="0.1" value="0.0">
+                        </div>
+                        <div class="flex-item">
+                            <label for="ingredientStandardQuantity">Cant Estándar (base):</label>
+                            <input type="number" id="ingredientStandardQuantity" step="0.1" value="100.0">
+                        </div>
+                        <div class="flex-item">
+                            <label for="ingredientUnit">Unid (base):</label>
+                            <input type="text" id="ingredientUnit" placeholder="Ej: g, ml" class="w-full" value="g">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search input for ingredients -->
+                <div class="form-group mb-4">
+                    <label for="ingredientSearch">Buscar Ingrediente:</label>
+                    <input type="text" id="ingredientSearch" placeholder="Escribe para buscar..." class="w-full p-2 border rounded-md" list="ingredientSuggestions">
+                    <datalist id="ingredientSuggestions"></datalist>
+                </div>
+
+                <div class="list-section">
+                    <h2>Listado de Ingredientes</h2>
+                    <ul id="ingredientsList">
+                        <li class="mensaje-info">Cargando ingredientes...</li>
+                    </ul>
+                    <!-- Pagination Controls -->
+                    <div class="pagination-controls flex justify-center items-center mt-4 gap-2">
+                        <button id="prevPageBtn" class="btn-secondary px-3 py-1 rounded-md text-sm" disabled><i class="fas fa-chevron-left"></i> Anterior</button>
+                        <span id="pageInfo" class="text-sm font-semibold text-gray-700">Página 1 de 1</span>
+                        <button id="nextPageBtn" class="btn-secondary px-3 py-1 rounded-md text-sm" disabled>Siguiente <i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Accordion for Recipes -->
+        <div class="accordion-item" id="recipeAccordion">
+            <div class="accordion-header">
+                Recetas
+                <i class="fas fa-chevron-right arrow"></i>
+            </div>
+            <div class="accordion-content">
+                <div class="form-section">
+                    <h2>
+                        <span id="recipeFormTitle">Añadir Nueva Receta</span>
+                    </h2>
+                    <div class="form-group">
+                        <label for="recipeName">Nombre de la Receta:</label>
+                        <input type="text" id="recipeName" class="w-full">
+                    </div>
+                    <div class="form-group">
+                        <label for="recipeDescription">Descripción:</label>
+                        <textarea id="recipeDescription" class="w-full"></textarea>
+                    </div>
+                    <h3>Ingredientes de la Receta:</h3>
+                    <div class="form-group flex-container">
+                        <div class="flex-item">
+                            <label for="addIngredientToRecipe">Añadir ingrediente existente:</label>
+                            <select id="addIngredientToRecipe" class="w-full">
+                                <option value="">Selecciona un ingrediente</option>
+                            </select>
+                        </div>
+                        <div class="flex-item">
+                            <label for="ingredientQuantityForRecipe">Cantidad (g):</label>
+                            <input type="number" id="ingredientQuantityForRecipe" value="100" min="1" step="1">
+                        </div>
+                        <button id="addSelectedIngredientToRecipe" class="btn-primary flex-shrink-0 mt-auto">
+                            <i class="fas fa-plus"></i> Añadir
+                        </button>
+                    </div>
+                    <ul id="currentRecipeIngredientsList" class="my-4 p-3 border rounded-lg bg-white">
+                        <!-- Ingredients dynamically added here -->
+                        <li class="mensaje-info" id="noIngredientsMessage">No hay ingredientes añadidos a la receta.</li>
+                    </ul>
+
+                    <div class="form-group flex-container">
+                        <div class="flex-item">
+                            <label>Costo Total:</label>
+                            <span id="totalCost" class="font-bold text-blue-700">0.00€</span>
+                        </div>
+                        <div class="flex-item">
+                            <label>Calorías Totales:</label>
+                            <span id="totalCalories" class="font-bold text-orange-700">0.0 kcal</span>
+                        </div>
+                        <div class="flex-item">
+                            <label>Proteínas Totales:</label>
+                            <span id="totalProteins" class="font-bold text-green-700">0.0 g</span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <button id="addRecipeBtn" class="btn-primary flex-grow">
+                            <i class="fas fa-utensils"></i> Añadir Receta
+                        </button>
+                        <button id="cancelEditRecipeBtn" class="btn-secondary flex-grow" style="display:none;">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                    </div>
+                </div>
+
+                <div class="list-section">
+                    <h2>Listado de Recetas</h2>
+                    <ul id="recipesList">
+                        <li class="mensaje-info">Cargando recetas...</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Accordion for Weekly Menu -->
+        <div class="accordion-item" id="weeklyMenuAccordion">
+            <div class="accordion-header">
+                Menú Semanal
+                <i class="fas fa-chevron-right arrow"></i>
+            </div>
+            <div class="accordion-content">
+                <div class="weekly-menu-grid" id="weeklyMenuGrid">
+                    <!-- Week day cards will be loaded here -->
+                </div>
+                <div class="save-menu-btn-container">
+                    <button id="saveMenuBtn" class="btn-primary">
+                        <i class="fas fa-save"></i> Guardar Menú Semanal
+                    </button>
+                </div>
+                <!-- Weekly totals section -->
+                <div class="weekly-totals-summary mt-8">
+                    <h3>Totales de la Semana</h3>
+                    <p>Costo Total Semanal: <strong id="weeklyTotalCost">0.00€</strong></p>
+                    <p>Calorías Totales Semanales: <strong id="weeklyTotalCalories">0.0 kcal</strong></p>
+                    <p>Proteínas Totales Semanales: <strong id="weeklyTotalProteins">0.0 g</strong></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation-notes">
+            <a href="/" class="boton">
+                <i class="fas fa-home"></i>
+                <span>Volver a la Agenda</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Custom Alert/Confirm Modal HTML -->
+    <div id="customModalOverlay" class="custom-modal-overlay" style="display:none;">
+        <div class="custom-modal-content">
+            <h3 id="customModalTitle"></h3>
+            <p id="customModalMessage"></p>
+            <div class="modal-actions" id="customModalActions">
+                <!-- Buttons will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables to store data and DOM elements
+        let allSupermarkets = [];
+        let allIngredients = []; // Will store all loaded ingredients (now more complex objects with prices per supermarket)
+        let allRecipes = [];
+        let currentRecipeIngredients = []; // Ingredients temporarily added to the current recipe
+        let weeklyMenuData = {}; // Will store weekly menu data
+        let editingIngredientId = null; // Variable to control if an ingredient is being edited
+        let editingRecipeId = null; // NEW: Variable to control if a recipe is being edited
+
+
+        // New global variables for ingredient list management
+        let currentPageIngredients = 1;
+        const itemsPerPageIngredients = 5;
+        let searchTermIngredients = '';
+
+
+        const addSupermarketBtn = document.getElementById('addSupermarketBtn');
+        const supermarketNameInput = document.getElementById('supermarketName');
+        const supermarketsList = document.getElementById('supermarketsList'); // Now a grid
+
+        const addIngredientBtn = document.getElementById('addIngredientBtn');
+        const ingredientFormTitle = document.getElementById('ingredientFormTitle'); // New: Ingredient form title
+        const cancelEditIngredientBtn = document.getElementById('cancelEditIngredientBtn'); // New: Cancel edit button
+        const ingredientNameInput = document.getElementById('ingredientName');
+        // New elements for supermarket and price in main ingredient form
+        const ingredientSupermarketSelect = document.getElementById('ingredientSupermarketSelect');
+        const ingredientPriceInput = document.getElementById('ingredientPrice');
+        
+        const ingredientCaloriesInput = document.getElementById('ingredientCalories');
+        const ingredientProteinsInput = document.getElementById('ingredientProteins');
+        const ingredientStandardQuantityInput = document.getElementById('ingredientStandardQuantity'); // New: Standard Quantity
+        const ingredientUnitInput = document.getElementById('ingredientUnit'); // New: Unit
+        const ingredientsList = document.getElementById('ingredientsList');
+
+        // Get new DOM elements for search and pagination
+        const ingredientSearchInput = document.getElementById('ingredientSearch');
+        const prevPageBtn = document.getElementById('prevPageBtn');
+        const nextPageBtn = document.getElementById('nextPageBtn');
+        const pageInfoSpan = document.getElementById('pageInfo');
+
+        // Element for the new supermarket/price input group, to hide/show during edit
+        const supermarketPriceInputGroup = document.getElementById('supermarketPriceInputGroup');
+
+
+        const recipeFormTitle = document.getElementById('recipeFormTitle'); // NEW: Recipe form title
+        const recipeNameInput = document.getElementById('recipeName');
+        const recipeDescriptionInput = document.getElementById('recipeDescription');
+        const addIngredientToRecipeSelect = document.getElementById('addIngredientToRecipe');
+        const ingredientQuantityForRecipeInput = document.getElementById('ingredientQuantityForRecipe'); // New: Quantity for the recipe
+        const addSelectedIngredientToRecipeBtn = document.getElementById('addSelectedIngredientToRecipe');
+        const currentRecipeIngredientsList = document.getElementById('currentRecipeIngredientsList');
+        const noIngredientsMessage = document.getElementById('noIngredientsMessage');
+        const totalCostSpan = document.getElementById('totalCost');
+        const totalCaloriesSpan = document.getElementById('totalCalories');
+        const totalProteinsSpan = document.getElementById('totalProteins');
+        const addRecipeBtn = document.getElementById('addRecipeBtn');
+        const cancelEditRecipeBtn = document.getElementById('cancelEditRecipeBtn'); // NEW: Cancel recipe edit button
+        const recipesList = document.getElementById('recipesList');
+
+        const weeklyMenuGrid = document.getElementById('weeklyMenuGrid');
+        const saveMenuBtn = document.getElementById('saveMenuBtn');
+        const weeklyTotalCostSpan = document.getElementById('weeklyTotalCost');
+        const weeklyTotalCaloriesSpan = document.getElementById('weeklyTotalCalories');
+        const weeklyTotalProteinsSpan = document.getElementById('weeklyTotalProteins');
+
+
+        // --- Utility Functions for Modals ---
+        /**
+         * Shows a custom modal dialog.
+         * @param {string} message - The message to display.
+         * @param {string} [title='Mensaje'] - The title of the modal.
+         * @param {'alert'|'confirm'} [type='alert'] - The type of modal (alert or confirm).
+         * @returns {Promise<boolean>} - Resolves to true for 'Aceptar'/'Sí', false for 'No'.
+         */
+        function showCustomModal(message, title = 'Mensaje', type = 'alert') {
+            return new Promise((resolve) => {
+                const modalOverlay = document.getElementById('customModalOverlay');
+                const modalTitle = document.getElementById('customModalTitle');
+                const modalMessage = document.getElementById('customModalMessage');
+                const modalActions = document.getElementById('customModalActions');
+
+                modalTitle.textContent = title;
+                modalMessage.textContent = message;
+                modalActions.innerHTML = ''; // Clear previous buttons
+
+                if (type === 'alert') {
+                    const okButton = document.createElement('button');
+                    okButton.classList.add('boton', 'btn-primary');
+                    okButton.textContent = 'Aceptar';
+                    okButton.addEventListener('click', () => {
+                        modalOverlay.style.display = 'none';
+                        resolve(true);
+                    });
+                    modalActions.appendChild(okButton);
+                } else if (type === 'confirm') {
+                    const yesButton = document.createElement('button');
+                    yesButton.classList.add('boton', 'btn-primary');
+                    yesButton.textContent = 'Sí';
+                    yesButton.addEventListener('click', () => {
+                        modalOverlay.style.display = 'none';
+                        resolve(true);
+                    });
+                    const noButton = document.createElement('button');
+                    noButton.classList.add('boton', 'btn-secondary', 'cancel-button');
+                    noButton.textContent = 'No';
+                    noButton.addEventListener('click', () => {
+                        modalOverlay.style.display = 'none';
+                        resolve(false);
+                    });
+                    modalActions.appendChild(yesButton);
+                    modalActions.appendChild(noButton);
+                }
+
+                modalOverlay.style.display = 'flex';
+            });
+        }
+
+        /**
+         * Shows a custom alert modal.
+         * @param {string} message - The message to display.
+         * @param {string} [title='Mensaje'] - The title of the modal.
+         * @returns {Promise<boolean>} - Always resolves to true.
+         */
+        function showCustomAlert(message, title = 'Mensaje') {
+            return showCustomModal(message, title, 'alert');
+        }
+
+        /**
+         * Shows a custom confirmation modal.
+         * @param {string} message - The message to display.
+         * @param {string} [title='Confirmación'] - The title of the modal.
+         * @returns {Promise<boolean>} - Resolves to true if 'Sí' is clicked, false if 'No'.
+         */
+        async function showCustomConfirm(message, title = 'Confirmación') {
+            return await showCustomModal(message, title, 'confirm');
+        }
+
+        // --- General Accordion Functionality ---
+        document.querySelectorAll('.accordion-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const accordionItem = header.closest('.accordion-item');
+                const content = header.nextElementSibling;
+
+                // Close other accordions
+                document.querySelectorAll('.accordion-item').forEach(item => {
+                    if (item !== accordionItem) {
+                        item.classList.remove('active');
+                        item.querySelector('.accordion-content').style.maxHeight = 0;
+                    }
+                });
+
+                // Open or close the current accordion
+                accordionItem.classList.toggle('active');
+                if (accordionItem.classList.contains('active')) {
+                    // Set to a very large value to ensure it fully expands and scrolls if needed
+                    content.style.maxHeight = '9999px'; 
+                    // Load specific data when the accordion opens
+                    if (accordionItem.id === 'ingredientAccordion') {
+                        fetchSupermarkets(); // Load supermarkets when ingredients open
+                        fetchIngredients();
+                    } else if (accordionItem.id === 'recipeAccordion') {
+                        fetchRecipes();
+                        fetchIngredientsForRecipeSelect(addIngredientToRecipeSelect); // Load ingredients for recipe select
+                    } else if (accordionItem.id === 'weeklyMenuAccordion') {
+                        renderWeeklyMenuGrid(); // Render the structure before loading data
+                        fetchWeeklyMenu(); // Load saved data
+                    }
+                } else {
+                    content.style.maxHeight = 0;
+                }
+            });
+        });
+
+        // --- Functions for Supermarkets ---
+        /**
+         * Fetches supermarkets from the API and renders them.
+         * @param {HTMLElement} [selectElement=null] - Optional select element to populate.
+         */
+        async function fetchSupermarkets(selectElement = null) {
+            console.log('Fetching supermarkets...');
+            try {
+                const response = await fetch('/api/supermarkets');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                allSupermarkets = await response.json();
+                renderSupermarkets(selectElement);
+                // Also render for the new ingredient form's supermarket select
+                renderSupermarkets(ingredientSupermarketSelect); 
+            } catch (error) {
+                console.error('Error fetching supermarkets:', error);
+                if (selectElement) {
+                    selectElement.innerHTML = '<option value="">Error al cargar</option>';
+                } else {
+                    supermarketsList.innerHTML = '<div class="mensaje-error col-span-full">Error al cargar supermercados.</div>';
+                }
+                showCustomAlert(`No se pudieron cargar los supermercados: ${error.message}`, 'Error de Carga');
+            }
+        }
+
+        /**
+         * Renders the list of supermarkets either in the main grid or a select element.
+         * @param {HTMLElement} [selectElement=null] - Optional select element to populate.
+         */
+        function renderSupermarkets(selectElement = null) {
+            if (selectElement) {
+                selectElement.innerHTML = '<option value="">Selecciona (opcional)</option>'; // Updated default option text
+                allSupermarkets.forEach(supermarket => {
+                    const option = document.createElement('option');
+                    option.value = supermarket.id; // Use ID as value
+                    option.textContent = supermarket.name;
+                    selectElement.appendChild(option);
+                });
+            } else {
+                supermarketsList.innerHTML = '';
+                if (allSupermarkets.length === 0) {
+                    supermarketsList.innerHTML = '<div class="mensaje-info col-span-full">No hay supermercados registrados.</div>';
+                    return;
+                }
+                allSupermarkets.forEach(supermarket => {
+                    const div = document.createElement('div');
+                    div.classList.add('supermarket-tag');
+                    div.innerHTML = `
+                        <span>${supermarket.name}</span>
+                        <button class="delete-btn" onclick="deleteSupermarket('${supermarket.id}')" title="Eliminar Supermercado">
+                            <i class="fas fa-times-circle"></i>
+                        </button>
+                    `;
+                    supermarketsList.appendChild(div);
+                });
+            }
+        }
+
+        addSupermarketBtn.addEventListener('click', async () => {
+            const name = supermarketNameInput.value.trim();
+            if (!name) {
+                showCustomAlert('El nombre del supermercado es obligatorio.', 'Campo Requerido');
+                return;
+            }
+            try {
+                const response = await fetch('/api/supermarkets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                if (response.status === 409) { // Conflict: Already exists
+                    showCustomAlert('Ya existe un supermercado con ese nombre.', 'Duplicado');
+                    return;
+                }
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error al añadir el supermercado.');
+                }
+                showCustomAlert('Supermercado añadido con éxito.', 'Éxito');
+                supermarketNameInput.value = '';
+                fetchSupermarkets();
+            } catch (error) {
+                console.error('Error adding supermarket:', error);
+                showCustomAlert(`No se pudo añadir el supermercado: ${error.message}`, 'Error');
+            }
+        });
+
+        /**
+         * Deletes a supermarket by its ID.
+         * @param {string} supermarketId - The ID of the supermarket to delete.
+         */
+        async function deleteSupermarket(supermarketId) {
+            const confirmAction = await showCustomConfirm('¿Estás seguro de que quieres eliminar este supermercado? Se eliminarán también todos los precios de ingredientes asociados a él.', 'Confirmación');
+            if (confirmAction) {
+                try {
+                    const response = await fetch(`/api/supermarkets/${supermarketId}`, {
+                        method: 'DELETE'
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Error al eliminar el supermercado.');
+                    }
+                    showCustomAlert('Supermercado eliminado con éxito.', 'Eliminación Exitosa');
+                    fetchSupermarkets();
+                    fetchIngredients(); // Refresh ingredients to update displayed prices
+                }  catch (error) {
+                    console.error('Error deleting supermarket:', error);
+                    showCustomAlert(`No se pudo eliminar el supermercado: ${error.message}`, 'Error');
+                }
+            }
+        }
+
+        // --- Functions for Ingredients ---
+        /**
+         * Fetches ingredients from the API and renders them.
+         * @param {HTMLElement} [selectElement=null] - Optional select element to populate.
+         */
+        async function fetchIngredients(selectElement = null) {
+            console.log('Fetching ingredients...');
+            if (!selectElement) { // Only show loading message for the main list
+                ingredientsList.innerHTML = '<li class="mensaje-info">Cargando ingredientes...</li>';
+                pageInfoSpan.textContent = 'Página 0 de 0'; // Reset page info
+                prevPageBtn.disabled = true;
+                nextPageBtn.disabled = true;
+            }
+            if (selectElement) { // For the recipe select
+                selectElement.innerHTML = '<option value="">Cargando ingredientes...</option>';
+            }
+
+            try {
+                const response = await fetch('/api/ingredients');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                allIngredients = await response.json();
+                console.log('Fetched ingredients:', allIngredients);
+                
+                // Populate datalist for autocomplete
+                const datalist = document.getElementById('ingredientSuggestions');
+                if (datalist) { // Ensure datalist exists
+                    datalist.innerHTML = ''; // Clear previous options
+                    allIngredients.forEach(ingredient => {
+                        const option = document.createElement('option');
+                        option.value = ingredient.name;
+                        datalist.appendChild(option);
+                    });
+                }
+
+                if (selectElement) {
+                    renderIngredients(selectElement); // Render for select if needed
+                } else {
+                    renderIngredients(); // Render for main list (with pagination/search)
+                }
+            } catch (error) {
+                console.error('Error fetching ingredients:', error);
+                if (!selectElement) {
+                    ingredientsList.innerHTML = '<li class="mensaje-error">Error al cargar ingredientes.</li>';
+                } else {
+                    selectElement.innerHTML = '<option value="">Error al cargar</option>';
+                }
+                showCustomAlert(`No se pudieron cargar los ingredientes: ${error.message}`, 'Error de Carga');
+            }
+        }
+
+        /**
+         * Populates the ingredient select for recipes.
+         * @param {HTMLElement} selectElement - The select element to populate.
+         */
+        async function fetchIngredientsForRecipeSelect(selectElement) {
+            await fetchIngredients(); // Ensure allIngredients is updated
+            selectElement.innerHTML = '<option value="">Selecciona un ingrediente</option>';
+            allIngredients.forEach(ingredient => {
+                const option = document.createElement('option');
+                option.value = ingredient.id;
+                option.textContent = ingredient.name;
+                selectElement.appendChild(option);
+            });
+        }
+
+
+        /**
+         * Renders the ingredients list, applying search and pagination.
+         * @param {HTMLElement} [selectElement=null] - Optional select element to populate.
+         */
+        function renderIngredients(selectElement = null) {
+            if (selectElement) { // If a selectElement is passed, render options for that select
+                selectElement.innerHTML = '<option value="">Selecciona un ingrediente</option>';
+                allIngredients.forEach(ingredient => {
+                    const option = document.createElement('option');
+                    option.value = ingredient.id;
+                    option.textContent = ingredient.name;
+                    selectElement.appendChild(option);
+                });
+            } else { // If not passed, render the main ingredient list
+                ingredientsList.innerHTML = ''; // Clear the list
+
+                // 1. Filter ingredients based on search term
+                const filteredIngredients = allIngredients.filter(ingredient =>
+                    ingredient.name.toLowerCase().includes(searchTermIngredients.toLowerCase())
+                );
+
+                if (filteredIngredients.length === 0) {
+                    ingredientsList.innerHTML = '<li class="mensaje-info">No hay ingredientes registrados que coincidan con la búsqueda.</li>';
+                    pageInfoSpan.textContent = 'Página 0 de 0';
+                    prevPageBtn.disabled = true;
+                    nextPageBtn.disabled = true;
+                    return;
+                }
+
+                // 2. Calculate pagination properties
+                const totalPages = Math.ceil(filteredIngredients.length / itemsPerPageIngredients);
+                // Ensure current page doesn't exceed total pages after filtering/deleting
+                if (currentPageIngredients > totalPages) {
+                    currentPageIngredients = totalPages;
+                }
+                if (currentPageIngredients < 1 && totalPages > 0) {
+                     currentPageIngredients = 1;
+                }
+
+
+                const startIndex = (currentPageIngredients - 1) * itemsPerPageIngredients;
+                const endIndex = startIndex + itemsPerPageIngredients;
+                const ingredientsToRender = filteredIngredients.slice(startIndex, endIndex);
+
+                // 3. Render ingredients for the current page
+                ingredientsToRender.forEach(ingredient => {
+                    const li = document.createElement('li');
+                    // Add a class for the li container that will allow controlling the dropdown state
+                    li.classList.add('collapsible-details-container', 'flex', 'flex-col', 'sm:flex-row', 'justify-between', 'items-start', 'p-4', 'bg-white', 'rounded-lg', 'shadow-md', 'mb-2'); 
+                    li.innerHTML = `
+                        <div class="flex-grow w-full sm:w-auto">
+                            <div class="list-item-header">
+                                <span class="font-semibold text-lg text-gray-800">${ingredient.name}</span>
+                                <button class="toggle-details-btn text-gray-600 hover:bg-gray-200 rounded-full p-2 transition-colors duration-200" title="Ver/Ocultar detalles">
+                                    <i class="fas fa-chevron-right toggle-arrow"></i>
+                                </button>
+                            </div>
+                            
+                            <div class="collapsible-details overflow-hidden transition-all duration-300 ease-out" style="max-height: 0;">
+                                <div class="ingredient-details text-sm text-gray-700 flex flex-wrap gap-x-4 gap-y-1 mb-3">
+                                    <span>Calorías (base): <strong class="text-indigo-600">${ingredient.calories_per_100g ? ingredient.calories_per_100g.toFixed(1) : '0.0'} kcal</strong></span>
+                                    <span>Proteínas (base): <strong class="text-indigo-600">${ingredient.proteins_per_100g ? ingredient.proteins_per_100g.toFixed(1) : '0.0'} g</strong></span>
+                                    <span>Cant Estándar (base): <strong class="text-indigo-600">${ingredient.cantidad_estandar ? ingredient.cantidad_estandar.toFixed(1) : '0.0'} ${ingredient.unidad_medida || ''}</strong></span>
+                                </div>
+                                <div class="mt-3 w-full">
+                                    <h4 class="font-semibold text-base text-gray-700 mb-2">Precios y Detalles por Supermercado:</h4>
+                                    <div class="supermarket-prices-table-wrapper">
+                                        <table class="supermarket-prices-table w-full border-collapse">
+                                            <thead>
+                                                <tr>
+                                                    <th class="border px-3 py-2 text-left bg-gray-100 text-gray-700">Supermercado</th>
+                                                    <th class="border px-3 py-2 text-left bg-gray-100 text-gray-700">Precio (€)</th>
+                                                    <th class="border px-3 py-2 text-left bg-gray-100 text-gray-700">Kcal/100g</th>
+                                                    <th class="border px-3 py-2 text-left bg-gray-100 text-gray-700">Prot/100g</th>
+                                                    <th class="border px-3 py-2 text-left bg-gray-100 text-gray-700">Cant Estándar</th>
+                                                    <th class="border px-3 py-2 text-left bg-gray-100 text-gray-700">Unid</th>
+                                                    <th class="border px-3 py-2 text-left bg-gray-100 text-gray-700">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="prices-for-ingredient-${ingredient.id}">
+                                                ${ingredient.prices && ingredient.prices.length > 0 ?
+                                                    ingredient.prices.map(priceEntry => {
+                                                        const supermarket = allSupermarkets.find(s => s.id === priceEntry.supermarket_id);
+                                                        return `
+                                                            <tr>
+                                                                <td class="border px-3 py-2 text-gray-700">${supermarket ? supermarket.name : 'Desconocido'}</td>
+                                                                <td class="border px-3 py-2 text-gray-700">${priceEntry.price.toFixed(2)}</td>
+                                                                <td class="border px-3 py-2 text-gray-700">${priceEntry.calories_per_100g ? priceEntry.calories_per_100g.toFixed(1) : '0.0'}</td>
+                                                                <td class="border px-3 py-2 text-gray-700">${priceEntry.proteins_per_100g ? priceEntry.proteins_per_100g.toFixed(1) : '0.0'}</td>
+                                                                <td class="border px-3 py-2 text-gray-700">${priceEntry.cantidad_estandar ? priceEntry.cantidad_estandar.toFixed(1) : '0.0'}</td>
+                                                                <td class="border px-3 py-2 text-gray-700">${priceEntry.unidad_medida || ''}</td>
+                                                                <td class="border px-3 py-2">
+                                                                    <button class="delete-ingredient-price-btn btn-danger p-1 text-xs" 
+                                                                            data-ingredient-id="${ingredient.id}" 
+                                                                            data-supermarket-id="${priceEntry.supermarket_id}">
+                                                                        <i class="fas fa-trash"></i>
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        `;
+                                                    }).join('')
+                                                    : `<tr><td colspan="7" class="text-center text-gray-500 py-4">Sin precios registrados.</td></tr>`
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="flex mt-3 gap-2 items-center flex-wrap">
+                                        <select id="supermarket-select-${ingredient.id}" class="flex-grow p-2 border border-gray-300 rounded-md text-sm">
+                                            <option value="">Selecciona un supermercado</option>
+                                            ${allSupermarkets.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                                        </select>
+                                        <input type="number" id="price-input-${ingredient.id}" class="w-24 p-2 border border-gray-300 rounded-md text-sm" step="0.01" value="0.00" placeholder="Precio">
+                                        <input type="number" id="price-calories-${ingredient.id}" class="w-24 p-2 border border-gray-300 rounded-md text-sm" step="0.1" value="0.0" placeholder="Kcal/100g">
+                                        <input type="number" id="price-proteins-${ingredient.id}" class="w-24 p-2 border border-gray-300 rounded-md text-sm" step="0.1" value="0.0" placeholder="Prot/100g">
+                                        <input type="number" id="price-standard-quantity-${ingredient.id}" class="w-24 p-2 border border-gray-300 rounded-md text-sm" step="0.1" value="100.0" placeholder="Cant Estándar">
+                                        <input type="text" id="price-unit-${ingredient.id}" class="w-20 p-2 border border-gray-300 rounded-md text-sm" value="g" placeholder="Unid">
+                                        <button class="btn-primary p-2 text-sm flex-shrink-0 add-ingredient-price-btn" data-ingredient-id="${ingredient.id}">
+                                            Añadir Precio
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="list-item-actions flex-shrink-0 flex gap-2 mt-4 sm:mt-0 sm:ml-4 self-center">
+                            <button class="btn-primary p-2 text-base rounded-md shadow-sm hover:shadow-md transition-all duration-200" onclick="editIngredient('${ingredient.id}')" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn-danger p-2 text-base rounded-md shadow-sm hover:shadow-md transition-all duration-200" onclick="deleteIngredient('${ingredient.id}')" title="Eliminar">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    `;
+                    ingredientsList.appendChild(li);
+                });
+
+                // 4. Update pagination controls
+                pageInfoSpan.textContent = `Página ${totalPages > 0 ? currentPageIngredients : 0} de ${totalPages}`;
+                prevPageBtn.disabled = currentPageIngredients === 1 || totalPages === 0;
+                nextPageBtn.disabled = currentPageIngredients === totalPages || totalPages === 0;
+
+                // Add event listeners for the new toggle buttons (should be done once if possible, or ensure it's not adding duplicates)
+                ingredientsList.querySelectorAll('.toggle-details-btn').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const listItem = event.target.closest('.collapsible-details-container');
+                        const collapsibleContent = listItem.querySelector('.collapsible-details');
+                        
+                        listItem.classList.toggle('active');
+                        if (listItem.classList.contains('active')) {
+                            collapsibleContent.style.maxHeight = '9999px'; // Use a very large value
+                        } else {
+                            collapsibleContent.style.maxHeight = 0;
+                        }
+                    });
+                });
+                
+                // Add event listeners for 'Add Price' buttons
+                ingredientsList.querySelectorAll('.add-ingredient-price-btn').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const ingredientId = event.target.dataset.ingredientId;
+                        addIngredientPrice(ingredientId);
+                    });
+                });
+
+                // Add event listener for 'Delete Price' buttons using event delegation
+                // This ensures listeners work even for dynamically added rows.
+                ingredientsList.addEventListener('click', async (event) => {
+                    if (event.target.closest('.delete-ingredient-price-btn')) {
+                        const button = event.target.closest('.delete-ingredient-price-btn');
+                        const ingredientId = button.dataset.ingredientId;
+                        const supermarketId = button.dataset.supermarketId;
+                        await deleteIngredientPrice(ingredientId, supermarketId);
+                    }
+                });
+            }
+        }
+        
+        /**
+         * Adds a new price entry for an ingredient from a specific supermarket.
+         * @param {string} ingredientId - The ID of the ingredient.
+         */
+        async function addIngredientPrice(ingredientId) {
+            const supermarketSelect = document.getElementById(`supermarket-select-${ingredientId}`);
+            const priceInput = document.getElementById(`price-input-${ingredientId}`);
+            const caloriesInput = document.getElementById(`price-calories-${ingredientId}`);
+            const proteinsInput = document.getElementById(`price-proteins-${ingredientId}`);
+            const standardQuantityInput = document.getElementById(`price-standard-quantity-${ingredientId}`);
+            const unitInput = document.getElementById(`price-unit-${ingredientId}`);
+
+
+            const supermarketId = supermarketSelect.value;
+            const price = parseFloat(priceInput.value);
+            const calories_per_100g = parseFloat(caloriesInput.value);
+            const proteins_per_100g = parseFloat(proteinsInput.value);
+            const cantidad_estandar = parseFloat(standardQuantityInput.value);
+            const unidad_medida = unitInput.value.trim();
+
+
+            if (!supermarketId) {
+                showCustomAlert('Por favor, selecciona un supermercado.', 'Error');
+                return;
+            }
+            if (isNaN(price) || price <= 0) {
+                showCustomAlert('Por favor, introduce un precio válido (mayor que 0).', 'Error');
+                return;
+            }
+            if (isNaN(calories_per_100g) || isNaN(proteins_per_100g) || isNaN(cantidad_estandar)) {
+                showCustomAlert('Por favor, asegúrate de que los valores de calorías, proteínas y cantidad estándar son números válidos.', 'Error de Entrada');
+                return;
+            }
+
+
+            try {
+                const response = await fetch(`/api/ingredients/${ingredientId}/prices`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        supermarket_id: supermarketId, 
+                        price: price,
+                        calories_per_100g: calories_per_100g,
+                        proteins_per_100g: proteins_per_100g,
+                        cantidad_estandar: cantidad_estandar,
+                        unidad_medida: unidad_medida
+                    })
+                });
+
+                if (!response.ok) {
+                    let errorData;
+                    const contentType = response.headers.get("content-type");
+                    if (contentType && contentType.includes("application/json")) {
+                        errorData = await response.json();
+                        throw new Error(errorData.error || 'Error al añadir el precio.');
+                    } else {
+                        const errorText = await response.text();
+                        throw new Error(`El servidor respondió con un error no JSON. Código: ${response.status}. Mensaje: ${errorText.substring(0, 200)}...`);
+                    }
+                }
+                showCustomAlert('Precio añadido con éxito.', 'Éxito');
+                priceInput.value = '0.00';
+                caloriesInput.value = '0.0';
+                proteinsInput.value = '0.0';
+                standardQuantityInput.value = '100.0';
+                unitInput.value = 'g';
+                supermarketSelect.value = ''; // Reset select
+                fetchIngredients(); // Reload ingredients to update the list
+            } catch (error) {
+                console.error('Error adding ingredient price:', error);
+                showCustomAlert(`No se pudo añadir el precio: ${error.message}`, 'Error');
+            }
+        }
+
+        /**
+         * Deletes a specific price entry for an ingredient from a supermarket.
+         * @param {string} ingredientId - The ID of the ingredient.
+         * @param {string} supermarketId - The ID of the supermarket associated with the price.
+         */
+        async function deleteIngredientPrice(ingredientId, supermarketId) {
+            const confirmAction = await showCustomConfirm('¿Estás seguro de que quieres eliminar este precio de ingrediente?', 'Confirmación');
+            if (confirmAction) {
+                try {
+                    const response = await fetch(`/api/ingredients/${ingredientId}/prices/${supermarketId}`, {
+                        method: 'DELETE'
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Error al eliminar el precio del ingrediente.');
+                    }
+                    showCustomAlert('Precio del ingrediente eliminado con éxito.', 'Eliminación Exitosa');
+                    fetchIngredients(); // Reload ingredients to update the list
+                } catch (error) {
+                    console.error('Error deleting ingredient price:', error);
+                    showCustomAlert(`No se pudo eliminar el precio del ingrediente: ${error.message}`, 'Error');
+                }
+            }
+        }
+
+        /**
+         * Resets the ingredient form to its default 'add new ingredient' state.
+         */
+        function resetIngredientForm() {
+            editingIngredientId = null;
+            ingredientFormTitle.textContent = 'Añadir Nuevo Ingrediente';
+            addIngredientBtn.innerHTML = '<i class="fas fa-plus"></i> <span class="sm:hidden">Añadir</span>'; // Plus icon for add
+            addIngredientBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600'); // Remove "Save Changes" styles
+            addIngredientBtn.classList.add('btn-primary'); // Restore "Add" styles
+            cancelEditIngredientBtn.style.display = 'none';
+
+            ingredientNameInput.value = '';
+            ingredientCaloriesInput.value = '0.0';
+            ingredientProteinsInput.value = '0.0';
+            ingredientStandardQuantityInput.value = '100.0'; // Default value of 100
+            ingredientUnitInput.value = 'g'; // Default value "g"
+            
+            // Show and clear new supermarket/price inputs for new creation
+            // Check if supermarketPriceInputGroup exists before accessing its style
+            if (supermarketPriceInputGroup) {
+                supermarketPriceInputGroup.style.display = 'flex'; // Ensure it's visible
+            }
+            ingredientSupermarketSelect.value = '';
+            ingredientPriceInput.value = '0.00';
+        }
+
+        /**
+         * Populates the ingredient form with data for editing an existing ingredient.
+         * @param {string} ingredientId - The ID of the ingredient to edit.
+         */
+        async function editIngredient(ingredientId) {
+            const ingredient = allIngredients.find(ing => ing.id === ingredientId);
+            if (!ingredient) {
+                showCustomAlert('Ingrediente no encontrado para editar.', 'Error');
+                return;
+            }
+
+            // Set edit mode
+            editingIngredientId = ingredient.id;
+            ingredientFormTitle.textContent = 'Editar Ingrediente';
+            addIngredientBtn.innerHTML = '<i class="fas fa-save"></i> <span class="sm:hidden">Guardar</span>'; // Save icon for edit
+            addIngredientBtn.classList.remove('btn-primary');
+            addIngredientBtn.classList.add('bg-yellow-500', 'hover:bg-yellow-600'); // Change color to indicate editing
+            cancelEditIngredientBtn.style.display = 'inline-flex'; // Show cancel button
+
+            // Fill the form with base ingredient data
+            ingredientNameInput.value = ingredient.name;
+            ingredientCaloriesInput.value = ingredient.calories_per_100g || 0;
+            ingredientProteinsInput.value = ingredient.proteins_per_100g || 0;
+            ingredientStandardQuantityInput.value = ingredient.cantidad_estandar || 0; 
+            ingredientUnitInput.value = ingredient.unidad_medida || ''; 
+            
+            // Hide the supermarket and price inputs when editing a base ingredient
+            // Check if supermarketPriceInputGroup exists before accessing its style
+            if (supermarketPriceInputGroup) {
+                supermarketPriceInputGroup.style.display = 'none';
+            }
+
+            // Scroll to the form
+            ingredientFormTitle.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        cancelEditIngredientBtn.addEventListener('click', resetIngredientForm);
+
+        addIngredientBtn.addEventListener('click', async () => {
+            const name = ingredientNameInput.value.trim();
+            const calories_per_100g = parseFloat(ingredientCaloriesInput.value);
+            const proteins_per_100g = parseFloat(ingredientProteinsInput.value);
+            const cantidad_estandar = parseFloat(ingredientStandardQuantityInput.value);
+            const unidad_medida = ingredientUnitInput.value.trim();
+
+            // New fields for supermarket-specific price on creation
+            const supermarketId = ingredientSupermarketSelect.value;
+            const price = parseFloat(ingredientPriceInput.value);
+
+            if (!name) {
+                showCustomAlert('El nombre del ingrediente es obligatorio.', 'Campo Requerido');
+                return;
+            }
+            if (isNaN(calories_per_100g) || isNaN(proteins_per_100g) || isNaN(cantidad_estandar)) { 
+                showCustomAlert('Asegúrate de que todos los valores numéricos base son válidos.', 'Error de Entrada');
+                return;
+            }
+            
+            // Validation for supermarket-specific price if selected
+            if (!editingIngredientId && supermarketId && (isNaN(price) || price <= 0)) { // Only validate for new ingredients
+                showCustomAlert('Si seleccionas un supermercado al añadir un nuevo ingrediente, el precio debe ser un valor válido mayor que 0.', 'Error de Entrada');
+                return;
+            }
+            
+            // Warn if standard quantity is 0 and nutritional values are present
+            if (cantidad_estandar <= 0 && (calories_per_100g > 0 || proteins_per_100g > 0)) {
+                 const confirmZeroQty = await showCustomConfirm('La cantidad estándar es 0. Esto podría afectar cálculos futuros. ¿Deseas continuar?', 'Advertencia');
+                 if (!confirmZeroQty) {
+                     return;
+                 }
+            }
+
+
+            const method = editingIngredientId ? 'PUT' : 'POST';
+            const url = editingIngredientId ? `/api/ingredients/${editingIngredientId}` : '/api/ingredients';
+
+            try {
+                // First, handle the base ingredient creation/update
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name,
+                        calories_per_100g, // These are the base values
+                        proteins_per_100g,
+                        cantidad_estandar,
+                        unidad_medida
+                    })
+                });
+
+                if (!response.ok) {
+                    let errorData;
+                    const contentType = response.headers.get("content-type");
+                    if (contentType && contentType.includes("application/json")) {
+                        errorData = await response.json();
+                        throw new Error(errorData.error || `Error al ${editingIngredientId ? 'actualizar' : 'añadir'} el ingrediente.`);
+                    } else {
+                        const errorText = await response.text();
+                        throw new Error(`El servidor respondió con un error no JSON. Código: ${response.status}. Mensaje: ${errorText.substring(0, 200)}...`);
+                    }
+                }
+
+                const result = await response.json();
+                const newIngredientId = result.id || editingIngredientId; // Get ID for price addition
+
+                // If it's a new ingredient creation and a supermarket was selected, also add the first price
+                if (!editingIngredientId && supermarketId && price > 0) {
+                    try {
+                        const priceResponse = await fetch(`/api/ingredients/${newIngredientId}/prices`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                supermarket_id: supermarketId, 
+                                price: price,
+                                // Copy base nutritional values for the first price entry
+                                calories_per_100g: calories_per_100g,
+                                proteins_per_100g: proteins_per_100g,
+                                cantidad_estandar: cantidad_estandar,
+                                unidad_medida: unidad_medida
+                            })
+                        });
+                        if (!priceResponse.ok) {
+                            const errorData = await priceResponse.json();
+                            throw new Error(errorData.error || 'Error al añadir el precio del supermercado.');
+                        }
+                        showCustomAlert('Ingrediente y precio de supermercado añadidos con éxito.', 'Éxito');
+                    } catch (priceError) {
+                        console.error('Error adding initial ingredient price:', priceError);
+                        showCustomAlert(`Ingrediente añadido, pero hubo un error al añadir el precio del supermercado: ${priceError.message}`, 'Advertencia');
+                    }
+                } else if (editingIngredientId) {
+                    showCustomAlert(`Ingrediente actualizado con éxito.`, 'Éxito');
+                } else {
+                    showCustomAlert('Ingrediente añadido con éxito.', 'Éxito');
+                }
+
+                resetIngredientForm(); // Clear the form and reset edit state
+                fetchIngredients(); // Update the list
+                fetchIngredientsForRecipeSelect(addIngredientToRecipeSelect); // Update recipe select
+            } catch (error) {
+                console.error(`Error ${editingIngredientId ? 'updating' : 'adding'} ingredient:`, error);
+                showCustomAlert(`No se pudo ${editingIngredientId ? 'actualizar' : 'añadir'} el ingrediente: ${error.message}`, 'Error');
+            }
+        });
+
+        /**
+         * Deletes an ingredient by its ID.
+         * @param {string} ingredientId - The ID of the ingredient to delete.
+         */
+        async function deleteIngredient(ingredientId) {
+            const confirmAction = await showCustomConfirm('¿Estás seguro de que quieres eliminar este ingrediente? Se eliminarán también sus precios y de las recetas en las que aparezca.', 'Confirmación');
+            if (confirmAction) {
+                try {
+                    const response = await fetch(`/api/ingredients/${ingredientId}`, {
+                        method: 'DELETE'
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Error al eliminar el ingrediente.');
+                    }
+                    showCustomAlert('Ingrediente eliminado con éxito.', 'Eliminación Exitosa');
+                    fetchIngredients(); // Update the list
+                    fetchIngredientsForRecipeSelect(addIngredientToRecipeSelect); // Update recipe select
+                    fetchRecipes(); // Update recipes (in case the ingredient was in one)
+                } catch (error) {
+                    console.error('Error deleting ingredient:', error);
+                    showCustomAlert(`No se pudo eliminar el ingrediente: ${error.message}`, 'Error');
+                }
+            }
+        }
+
+        // --- Functions for Recipes ---
+        /**
+         * Fetches recipes from the API and renders them.
+         */
+        async function fetchRecipes() {
+            console.log('Fetching recipes...');
+            recipesList.innerHTML = '<li class="mensaje-info">Cargando recetas...</li>';
+            
+            // Ensure ingredients are loaded before fetching recipes, as recipes depend on ingredient data
+            await fetchIngredients();
+
+            try {
+                const response = await fetch('/api/recipes');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                allRecipes = await response.json();
+                console.log('Rendering recipes. All recipes data:', allRecipes); // DEBUG: Log all recipes
+                renderRecipes();
+            } catch (error) {
+                console.error('Error fetching recipes:', error);
+                recipesList.innerHTML = '<li class="mensaje-error">Error al cargar recetas.</li>';
+                showCustomAlert(`No se pudieron cargar las recetas: ${error.message}`, 'Error de Carga');
+            }
+        }
+
+        /**
+         * Renders the list of recipes.
+         */
+        function renderRecipes() {
+            recipesList.innerHTML = '';
+            if (allRecipes.length === 0) {
+                recipesList.innerHTML = '<li class="mensaje-info">No hay recetas registradas.</li>';
+                return;
+            }
+            allRecipes.forEach(recipe => {
+                console.log('Rendering recipe:', recipe); // DEBUG: Log each individual recipe object
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <div class="list-item-content">
+                        <h3 class="font-bold text-lg">${recipe.name}</h3>
+                        <p class="text-gray-600 mb-2">${recipe.description || 'Sin descripción'}</p>
+                        <h4 class="font-semibold text-sm mt-2">Ingredientes:</h4>
+                        <ul class="recipe-ingredients-list">
+                            ${recipe.ingredients.map(ing => {
+                                // Find the specific ingredient for its name, as ing.name might be outdated if ingredient was renamed
+                                const ingredientDetails = allIngredients.find(i => i.id === ing.ingredient_id);
+                                
+                                // Directly use the nutritional values and unit stored within the recipe's ingredient object.
+                                // These values (ing.calories_per_100g, ing.proteins_per_100g, ing.unit)
+                                // should be the ones saved from the chosen_price_entry when the recipe was created/edited.
+                                const displayCalories = ing.calories_per_100g !== undefined ? ing.calories_per_100g.toFixed(1) : '0.0';
+                                const displayProteins = ing.proteins_per_100g !== undefined ? ing.proteins_per_100g.toFixed(1) : '0.0';
+                                const displayUnit = ing.unit || 'g';
+                                
+                                console.log('Ingredient in recipe:', ing); // DEBUG: Log each ingredient within the recipe
+                                
+                                return `
+                                    <li>
+                                        ${ingredientDetails ? ingredientDetails.name : ing.name || 'Ingrediente desconocido'} 
+                                        (${ing.quantity}${displayUnit}) 
+                                        ${ing.chosen_supermarket_price !== undefined && ing.chosen_supermarket_price !== null ? `(Precio elegido: ${ing.chosen_supermarket_price.toFixed(2)}€)` : ''}
+                                        <br>
+                                        <span class="text-xs text-gray-500 ml-4">
+                                            (${displayCalories} kcal / ${displayProteins} prot per 100g)
+                                        </span>
+                                    </li>
+                                `;
+                            }).join('')}
+                        </ul>
+                        <div class="recipe-details mt-2">
+                            <span>Costo Total: <strong>${recipe.total_cost ? recipe.total_cost.toFixed(2) : '0.00'}€</strong></span>
+                            <span>Calorías Totales: <strong>${recipe.total_calories ? recipe.total_calories.toFixed(1) : '0.0'} kcal</strong></span>
+                            <span>Proteínas Totales: <strong>${recipe.total_proteins ? recipe.total_proteins.toFixed(1) : '0.0'} g</strong></span>
+                        </div>
+                    </div>
+                    <div class="list-item-actions">
+                        <button class="btn-primary p-2" onclick="editRecipe('${recipe.id}')" title="Editar Receta">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-danger p-2" onclick="deleteRecipe('${recipe.id}')" title="Eliminar Receta">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                recipesList.appendChild(li);
+            });
+        }
+
+        addSelectedIngredientToRecipeBtn.addEventListener('click', () => {
+            const selectedIngredientId = addIngredientToRecipeSelect.value;
+            const quantity = parseFloat(ingredientQuantityForRecipeInput.value);
+
+            if (!selectedIngredientId) {
+                showCustomAlert('Por favor, selecciona un ingrediente para añadir.', 'Selección Requerida');
+                return;
+            }
+            if (isNaN(quantity) || quantity <= 0) {
+                showCustomAlert('Por favor, introduce una cantidad válida para el ingrediente (mayor que 0).', 'Cantidad Inválida');
+                return;
+            }
+
+            const ingredient = allIngredients.find(ing => ing.id === selectedIngredientId);
+            if (ingredient) {
+                // Check if the ingredient is already in the current recipe list
+                if (currentRecipeIngredients.some(item => item.ingredient_id === ingredient.id)) {
+                    showCustomAlert('Este ingrediente ya ha sido añadido a la receta.', 'Duplicado');
+                    return;
+                }
+
+                // Here is where we need to choose the specific price and properties
+                // For now, we will select the lowest price, and take its nutritional and standard quantity properties
+                let chosenPriceEntry = null;
+                if (ingredient.prices && ingredient.prices.length > 0) {
+                    chosenPriceEntry = ingredient.prices.reduce((min, p) => p.price < min.price ? p : min, ingredient.prices[0]);
+                } else {
+                    // If there are no specific supermarket prices, use the ingredient's base properties
+                    chosenPriceEntry = {
+                        price: 0, // Default price if no supermarket price
+                        calories_per_100g: ingredient.calories_per_100g || 0,
+                        proteins_per_100g: ingredient.proteins_per_100g || 0,
+                        cantidad_estandar: ingredient.cantidad_estandar || 0,
+                        unidad_medida: ingredient.unidad_medida || 'g',
+                        supermarket_id: null // Indicate no specific supermarket chosen
+                    };
+                    // showCustomAlert(`El ingrediente "${ingredient.name}" no tiene precios registrados por supermercado. Su costo será 0 y usará sus valores base.`, 'Advertencia de Precio');
+                }
+
+                const ingredientForRecipe = {
+                    ingredient_id: ingredient.id,
+                    name: ingredient.name,
+                    quantity: quantity,
+                    // Use properties from 'chosenPriceEntry'
+                    calories_per_100g: chosenPriceEntry.calories_per_100g,
+                    proteins_per_100g: chosenPriceEntry.proteins_per_100g,
+                    chosen_supermarket_price: chosenPriceEntry.price, 
+                    standard_quantity: chosenPriceEntry.cantidad_estandar,
+                    unit: chosenPriceEntry.unidad_medida, // Save the unit as well
+                    chosen_supermarket_id: chosenPriceEntry.supermarket_id // Save the supermarket ID associated with the price
+                };
+                currentRecipeIngredients.push(ingredientForRecipe);
+                renderCurrentRecipeIngredients();
+                calculateRecipeTotals();
+            }
+        });
+
+        /**
+         * Renders the ingredients currently added to the recipe being edited/created.
+         */
+        function renderCurrentRecipeIngredients() {
+            currentRecipeIngredientsList.innerHTML = '';
+            if (currentRecipeIngredients.length === 0) {
+                noIngredientsMessage.style.display = 'block';
+                return;
+            }
+            noIngredientsMessage.style.display = 'none';
+
+            currentRecipeIngredients.forEach((ing, index) => {
+                const li = document.createElement('li');
+                li.classList.add('ingredient-recipe-item');
+                li.innerHTML = `
+                    <span>${ing.name} (${ing.quantity}${ing.unit})</span>
+                    <input type="number" value="${ing.quantity}" min="1" step="1" data-index="${index}" class="quantity-input">
+                    <button data-index="${index}" class="remove-ingredient-btn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                currentRecipeIngredientsList.appendChild(li);
+            });
+
+            // Add event listeners to quantity inputs
+            currentRecipeIngredientsList.querySelectorAll('.quantity-input').forEach(input => {
+                input.addEventListener('input', (event) => {
+                    const index = parseInt(event.target.dataset.index);
+                    currentRecipeIngredients[index].quantity = parseFloat(event.target.value) || 0;
+                    calculateRecipeTotals();
+                });
+            });
+
+            // Add event listeners to delete buttons
+            currentRecipeIngredientsList.querySelectorAll('.remove-ingredient-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const index = parseInt(event.target.closest('button').dataset.index);
+                    currentRecipeIngredients.splice(index, 1);
+                    renderCurrentRecipeIngredients();
+                    calculateRecipeTotals();
+                });
+            });
+        }
+
+        /**
+         * Calculates and displays the total cost, calories, and proteins for the current recipe.
+         */
+        function calculateRecipeTotals() {
+            let totalCost = 0;
+            let totalCalories = 0;
+            let totalProteins = 0;
+
+            currentRecipeIngredients.forEach(ing => {
+                // Calculate total cost
+                if (ing.chosen_supermarket_price !== undefined && ing.chosen_supermarket_price !== null && ing.standard_quantity > 0) {
+                    totalCost += (ing.chosen_supermarket_price / ing.standard_quantity) * ing.quantity;
+                }
+                
+                // Calculate nutrients (always per 100g, then adjusted to recipe quantity)
+                const quantityFactor = ing.quantity / 100; // To calculate nutrients per 100g
+
+                totalCalories += (ing.calories_per_100g || 0) * quantityFactor;
+                totalProteins += (ing.proteins_per_100g || 0) * quantityFactor;
+            });
+
+            totalCostSpan.textContent = `${totalCost.toFixed(2)}€`;
+            totalCaloriesSpan.textContent = `${totalCalories.toFixed(1)} kcal`;
+            totalProteinsSpan.textContent = `${totalProteins.toFixed(1)} g`;
+        }
+
+        /**
+         * Resets the recipe form to its default 'add new recipe' state.
+         */
+        function resetRecipeForm() {
+            editingRecipeId = null;
+            recipeFormTitle.textContent = 'Añadir Nueva Receta';
+            addRecipeBtn.innerHTML = '<i class="fas fa-utensils"></i> Añadir Receta';
+            addRecipeBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+            addRecipeBtn.classList.add('btn-primary');
+            cancelEditRecipeBtn.style.display = 'none';
+
+            recipeNameInput.value = '';
+            recipeDescriptionInput.value = '';
+            currentRecipeIngredients = [];
+            renderCurrentRecipeIngredients();
+            calculateRecipeTotals();
+            addIngredientToRecipeSelect.value = ''; // Reset the select dropdown
+            ingredientQuantityForRecipeInput.value = '100'; // Reset quantity input
+        }
+
+        addRecipeBtn.addEventListener('click', async () => {
+            const name = recipeNameInput.value.trim();
+            const description = recipeDescriptionInput.value.trim();
+
+            if (!name) {
+                showCustomAlert('El nombre de la receta es obligatorio.', 'Campo Requerido');
+                return;
+            }
+            if (currentRecipeIngredients.length === 0) {
+                showCustomAlert('La receta debe tener al menos un ingrediente.', 'Ingredientes Requeridos');
+                return;
+            }
+
+            const recipeData = {
+                name,
+                description,
+                ingredients: currentRecipeIngredients.map(ing => ({
+                    ingredient_id: ing.ingredient_id,
+                    quantity: ing.quantity,
+                    chosen_supermarket_price: ing.chosen_supermarket_price,
+                    chosen_supermarket_id: ing.chosen_supermarket_id,
+                    // Ensure these are passed from the calculated currentRecipeIngredients
+                    calories_per_100g: ing.calories_per_100g,
+                    proteins_per_100g: ing.proteins_per_100g,
+                    standard_quantity: ing.standard_quantity,
+                    unit: ing.unit
+                })),
+                total_cost: parseFloat(totalCostSpan.textContent.replace('€', '')),
+                total_calories: parseFloat(totalCaloriesSpan.textContent.replace(' kcal', '')),
+                total_proteins: parseFloat(totalProteinsSpan.textContent.replace(' g', '')),
+            };
+
+            const method = editingRecipeId ? 'PUT' : 'POST';
+            const url = editingRecipeId ? `/api/recipes/${editingRecipeId}` : '/api/recipes';
+
+            console.log('Attempting to save recipe with data:', recipeData); // DEBUG: Log recipe data before sending
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(recipeData)
+                });
+
+                if (!response.ok) {
+                    let errorData;
+                    const contentType = response.headers.get("content-type");
+                    if (contentType && contentType.indexOf("application/json") !== -1) {
+                        errorData = await response.json();
+                        throw new Error(errorData.error || `Error al ${editingRecipeId ? 'actualizar' : 'crear'} la receta.`);
+                    } else {
+                        const errorText = await response.text();
+                        throw new Error(`El servidor respondió con un error no JSON. Código: ${response.status}. Mensaje: ${errorText.substring(0, 200)}...`);
+                    }
+                }
+
+                showCustomAlert(`Receta ${editingRecipeId ? 'actualizada' : 'creada'} con éxito.`, 'Éxito');
+                resetRecipeForm(); // Clear form and reset edit state
+                fetchRecipes(); // Update recipe list
+            } catch (error) {
+                console.error(`Error ${editingRecipeId ? 'updating' : 'creating'} recipe:`, error);
+                showCustomAlert(`No se pudo ${editingRecipeId ? 'actualizar' : 'crear'} la receta: ${error.message}`, 'Error');
+            }
+        });
+
+        /**
+         * Populates the recipe form with data for editing an existing recipe.
+         * Crucially, re-evaluates nutritional details from current allIngredients.
+         * @param {string} recipeId - The ID of the recipe to edit.
+         */
+        async function editRecipe(recipeId) {
+            const recipeToEdit = allRecipes.find(r => r.id === recipeId);
+            if (!recipeToEdit) {
+                showCustomAlert('Receta no encontrada para editar.', 'Error');
+                return;
+            }
+
+            // Ensure all ingredients are loaded and up-to-date for lookup
+            await fetchIngredients(); // This makes sure allIngredients is current
+
+            // Set edit mode
+            editingRecipeId = recipeToEdit.id;
+            recipeFormTitle.textContent = 'Editar Receta';
+            addRecipeBtn.innerHTML = '<i class="fas fa-save"></i> Guardar Cambios';
+            addRecipeBtn.classList.remove('btn-primary');
+            addRecipeBtn.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+            cancelEditRecipeBtn.style.display = 'inline-flex';
+
+            // Fill form fields
+            recipeNameInput.value = recipeToEdit.name;
+            recipeDescriptionInput.value = recipeToEdit.description || '';
+
+            // Deep copy ingredients and re-evaluate nutritional details from current allIngredients
+            currentRecipeIngredients = recipeToEdit.ingredients.map(ing => {
+                const ingredientBase = allIngredients.find(i => i.id === ing.ingredient_id);
+                let chosenPriceDetails = null;
+
+                // Try to find the exact price entry that was chosen for this ingredient,
+                // considering supermarket ID and chosen price.
+                if (ingredientBase && ingredientBase.prices) {
+                    chosenPriceDetails = ingredientBase.prices.find(p =>
+                        p.supermarket_id === ing.chosen_supermarket_id && p.price === ing.chosen_supermarket_price
+                    );
+                }
+
+                // Initialize effective values with defaults or values from the recipe's stored ingredient
+                let effectiveCalories = ing.calories_per_100g || 0;
+                let effectiveProteins = ing.proteins_per_100g || 0;
+                let effectiveStandardQuantity = ing.standard_quantity || 0;
+                let effectiveUnit = ing.unit || 'g';
+                let effectiveChosenPrice = ing.chosen_supermarket_price || 0;
+                let effectiveChosenSupermarketId = ing.chosen_supermarket_id || null;
+
+                // If a matching price entry is found in allIngredients, use its properties
+                if (chosenPriceDetails) {
+                    effectiveCalories = chosenPriceDetails.calories_per_100g || 0;
+                    effectiveProteins = chosenPriceDetails.proteins_per_100g || 0;
+                    effectiveStandardQuantity = chosenPriceDetails.cantidad_estandar || 0;
+                    effectiveUnit = chosenPriceDetails.unidad_medida || 'g';
+                    effectiveChosenPrice = chosenPriceDetails.price;
+                    effectiveChosenSupermarketId = chosenPriceDetails.supermarket_id;
+                } else if (ingredientBase) {
+                    // If no specific price found, fallback to the base ingredient's values from allIngredients.
+                    // Keep the original chosen price from the recipe, but update nutritional info.
+                    effectiveCalories = ingredientBase.calories_per_100g || 0;
+                    effectiveProteins = ingredientBase.proteins_per_100g || 0;
+                    effectiveStandardQuantity = ingredientBase.cantidad_estandar || 0;
+                    effectiveUnit = ingredientBase.unidad_medida || 'g';
+                    // The effectiveChosenPrice and effectiveChosenSupermarketId remain as they were in the recipe.
+                    // This handles cases where the exact price entry might have been deleted from an ingredient,
+                    // but we still want to use the ingredient's base nutritional values.
+                }
+                
+                // Return a new object with correct current nutritional data for the frontend logic
+                return {
+                    ingredient_id: ing.ingredient_id,
+                    name: ingredientBase ? ingredientBase.name : ing.name, // Use updated name if available
+                    quantity: ing.quantity,
+                    chosen_supermarket_price: effectiveChosenPrice,
+                    chosen_supermarket_id: effectiveChosenSupermarketId,
+                    calories_per_100g: effectiveCalories,
+                    proteins_per_100g: effectiveProteins,
+                    standard_quantity: effectiveStandardQuantity,
+                    unit: effectiveUnit
+                };
+            });
+
+            renderCurrentRecipeIngredients();
+            calculateRecipeTotals();
+
+            // Scroll to the form
+            recipeFormTitle.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        cancelEditRecipeBtn.addEventListener('click', resetRecipeForm);
+
+        /**
+         * Deletes a recipe by its ID.
+         * @param {string} recipeId - The ID of the recipe to delete.
+         */
+        async function deleteRecipe(recipeId) {
+            const confirmAction = await showCustomConfirm('¿Estás seguro de que quieres eliminar esta receta? Se eliminará de cualquier menú semanal en el que aparezca.', 'Confirmación');
+            if (confirmAction) {
+                try {
+                    const response = await fetch(`/api/recipes/${recipeId}`, {
+                        method: 'DELETE'
+                    });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Error al eliminar la receta.');
+                    }
+                    showCustomAlert('Receta eliminada con éxito.', 'Eliminación Exitosa');
+                    fetchRecipes(); // Reload list
+                    fetchWeeklyMenu(); // Reload weekly menu to ensure deleted recipe is not displayed
+                } catch (error) {
+                    console.error('Error deleting recipe:', error);
+                    showCustomAlert(`No se pudo eliminar la receta: ${error.message}`, 'Error');
+                }
+            }
+        }
+
+        // --- Functions for Weekly Menu ---
+        /**
+         * Renders the weekly menu grid structure.
+         */
+        function renderWeeklyMenuGrid() {
+            weeklyMenuGrid.innerHTML = ''; // Clear previous content
+            const daysOfWeek = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+            const mealTypes = ["Desayuno", "Almuerzo", "Cena"];
+
+            daysOfWeek.forEach(day => {
+                const dayCard = document.createElement('div');
+                dayCard.classList.add('day-card');
+                dayCard.dataset.day = day; // Save day as data attribute
+
+                dayCard.innerHTML = `
+                    <h3>${day}</h3>
+                    ${mealTypes.map(mealType => `
+                        <label for="${day}-${mealType}" class="block mt-2 text-sm font-semibold">${mealType}:</label>
+                        <select id="${day}-${mealType}" class="meal-input-select" data-meal-type="${mealType}">
+                            <option value="">Selecciona una receta</option>
+                            ${allRecipes.map(recipe => `<option value="${recipe.id}">${recipe.name}</option>`).join('')}
+                        </select>
+                    `).join('')}
+                    <div class="daily-totals">
+                        <p>Total Calorías: <strong id="dailyCalories-${day}">0.0 kcal</strong></p>
+                        <p>Total Proteínas: <strong id="dailyProteins-${day}">0.0 g</strong></p>
+                        <p>Costo Diario: <strong id="dailyCost-${day}">0.00€</strong></p>
+                    </div>
+                `;
+                weeklyMenuGrid.appendChild(dayCard);
+
+                // Add event listeners to the new selects to recalculate totals on change
+                mealTypes.forEach(mealType => {
+                    const select = dayCard.querySelector(`.meal-input-select[data-meal-type="${mealType}"]`);
+                    if (select) {
+                        select.addEventListener('change', calculateAndDisplayWeeklyMenuTotals);
+                    }
+                });
+            });
+        }
+
+        /**
+         * Fetches the weekly menu from the API and populates the UI.
+         */
+        async function fetchWeeklyMenu() {
+            console.log('Fetching weekly menu...');
+            try {
+                const response = await fetch('/api/weekly_menu');
+                if (!response.ok) {
+                    // If no menu saved, API might return 404. Treat it as an empty menu.
+                    if (response.status === 404) {
+                         weeklyMenuData = {}; // Empty menu
+                         showCustomAlert('No se encontró un menú semanal guardado. Se ha iniciado un menú vacío.', 'Información');
+                         // Clear menu inputs to reflect empty state
+                         document.querySelectorAll('.meal-input-select').forEach(input => input.value = '');
+                         calculateAndDisplayWeeklyMenuTotals(); // Calculate totals for an empty menu
+                         return; // Exit function
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const menu = await response.json();
+                weeklyMenuData = menu; // Store complete menu
+                console.log('Fetched weekly menu data:', weeklyMenuData);
+
+                // Ensure recipes are loaded before populating the menu
+                if (allRecipes.length === 0) {
+                    await fetchRecipes(); // Reload recipes if not loaded
+                }
+                renderWeeklyMenuGrid(); // Re-render the grid with updated recipes
+                
+                // Populate selects with menu data
+                if (weeklyMenuData && weeklyMenuData.menu) { // Ensure 'menu' exists in the response
+                    Object.keys(weeklyMenuData.menu).forEach(day => {
+                        const dayCard = document.querySelector(`.day-card[data-day="${day}"]`);
+                        if (dayCard) {
+                            Object.keys(weeklyMenuData.menu[day]).forEach(mealType => {
+                                const select = dayCard.querySelector(`.meal-input-select[data-meal-type="${mealType}"]`);
+                                if (select) {
+                                    select.value = weeklyMenuData.menu[day][mealType] || ''; // Assign recipe ID
+                                }
+                            });
+                        }
+                    });
+                }
+                calculateAndDisplayWeeklyMenuTotals(); // Calculate totals after populating selects
+                showCustomAlert('Menú semanal cargado con éxito.', 'Carga Exitosa');
+            } catch (error) {
+                console.error('Error fetching weekly menu:', error);
+                showCustomAlert(`No se pudo cargar el menú semanal: ${error.message}. Se iniciará con un menú vacío.`, 'Error de Carga');
+                weeklyMenuData = {}; // Ensure it's empty in case of error
+                // Optionally, you can clear inputs if nothing was loaded
+                document.querySelectorAll('.meal-input-select').forEach(input => input.value = '');
+                calculateAndDisplayWeeklyMenuTotals(); // Calculate totals for an empty menu
+            }
+        }
+
+        /**
+         * Calculates and displays daily and weekly totals for calories, proteins, and cost.
+         */
+        function calculateAndDisplayWeeklyMenuTotals() {
+            let grandTotalCalories = 0;
+            let grandTotalProteins = 0;
+            let grandTotalCost = 0;
+
+            const daysOfWeek = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+            const mealTypes = ["Desayuno", "Almuerzo", "Cena"];
+
+            daysOfWeek.forEach(day => {
+                let dailyTotalCalories = 0;
+                let dailyTotalProteins = 0;
+                let dailyTotalCost = 0;
+
+                mealTypes.forEach(mealType => {
+                    const select = document.querySelector(`.day-card[data-day="${day}"] .meal-input-select[data-meal-type="${mealType}"]`);
+                    const selectedRecipeId = select ? select.value : '';
+
+                    if (selectedRecipeId) {
+                        const recipe = allRecipes.find(r => r.id === selectedRecipeId);
+                        if (recipe) {
+                            dailyTotalCalories += recipe.total_calories || 0;
+                            dailyTotalProteins += recipe.total_proteins || 0;
+                            dailyTotalCost += recipe.total_cost || 0;
+                        }
+                    }
+                });
+
+                // Update daily totals in the UI
+                document.getElementById(`dailyCalories-${day}`).textContent = `${dailyTotalCalories.toFixed(1)} kcal`;
+                document.getElementById(`dailyProteins-${day}`).textContent = `${dailyTotalProteins.toFixed(1)} g`;
+                document.getElementById(`dailyCost-${day}`).textContent = `${dailyTotalCost.toFixed(2)}€`;
+
+                // Add to grand totals
+                grandTotalCalories += dailyTotalCalories;
+                grandTotalProteins += dailyTotalProteins;
+                grandTotalCost += dailyTotalCost;
+            });
+
+            // Update weekly grand totals in the UI
+            weeklyTotalCaloriesSpan.textContent = `${grandTotalCalories.toFixed(1)} kcal`;
+            weeklyTotalProteinsSpan.textContent = `${grandTotalProteins.toFixed(1)} g`;
+            weeklyTotalCostSpan.textContent = `${grandTotalCost.toFixed(2)}€`;
+        }
+
+        /**
+         * Saves the current weekly menu to the API.
+         */
+        async function saveWeeklyMenu() {
+            const menuContent = {};
+            const daysOfWeek = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+            const mealTypes = ["Desayuno", "Almuerzo", "Cena"];
+
+            daysOfWeek.forEach(day => {
+                menuContent[day] = {};
+                mealTypes.forEach(mealType => {
+                    const select = document.querySelector(`.day-card[data-day="${day}"] .meal-input-select[data-meal-type="${mealType}"]`);
+                    if (select && select.value) { // Save recipe ID
+                        menuContent[day][mealType] = select.value;
+                    }
+                });
+            });
+
+            let method = 'POST'; // Assume it's a new creation first
+            let url = '/api/weekly_menu';
+            let payload = { menu: menuContent }; // Initial payload for POST
+
+            if (weeklyMenuData && weeklyMenuData.id) { // If an ID exists, it's an update
+                method = 'PUT';
+                payload.id = weeklyMenuData.id; // Add the ID to the payload for PUT
+            }
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Error al ${method === 'POST' ? 'crear' : 'actualizar'} el menú semanal.`);
+                }
+
+                // After successful save, update weeklyMenuData with the new ID if it was a POST
+                if (method === 'POST') {
+                    const result = await response.json();
+                    weeklyMenuData.id = result.id; // Assuming the backend returns the new ID
+                }
+
+                showCustomAlert('Menú semanal guardado con éxito.', 'Éxito');
+            } catch (error) {
+                console.error('Error saving weekly menu:', error);
+                showCustomAlert(`Error al guardar menú semanal: ${error.message}`, 'Error');
+            }
+        }
+
+        saveMenuBtn.addEventListener('click', saveWeeklyMenu);
+
+        // --- Event Listeners for Search and Pagination ---
+        ingredientSearchInput.addEventListener('input', () => {
+            searchTermIngredients = ingredientSearchInput.value.trim();
+            currentPageIngredients = 1; // Reset to first page on new search
+            renderIngredients();
+        });
+
+        prevPageBtn.addEventListener('click', () => {
+            if (currentPageIngredients > 1) {
+                currentPageIngredients--;
+                renderIngredients();
+            }
+        });
+
+        nextPageBtn.addEventListener('click', () => {
+            const filteredIngredients = allIngredients.filter(ingredient =>
+                ingredient.name.toLowerCase().includes(searchTermIngredients.toLowerCase())
+            );
+            const totalPages = Math.ceil(filteredIngredients.length / itemsPerPageIngredients);
+            if (currentPageIngredients < totalPages) {
+                currentPageIngredients++;
+                renderIngredients();
+            }
+        });
+
+        // --- Initialization --
+        document.addEventListener('DOMContentLoaded', async () => {
+            // No longer necessary to call fetchSupermarkets and fetchIngredients separately at startup
+            // They will be loaded when the ingredient accordion is opened.
+            // Ensure recipes are loaded for the weekly menu
+            await fetchRecipes(); 
+
+            // Initialize the weekly menu grid without opening the accordion
+            // This ensures that the recipe selects in the menu are populated correctly
+            renderWeeklyMenuGrid(); 
+            // Load the weekly menu after everything else is ready
+            fetchWeeklyMenu(); 
+        });
+
+    </script>
+</body>
+</html>
