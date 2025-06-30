@@ -741,6 +741,11 @@
 
         // Action function: Save Task to Important Records
         async function saveTaskToRegistro(fecha, textoOriginal) {
+            // Global variables for file attachment
+            let attachedFileBase64 = null;
+            let attachedFileName = null;
+            let attachedMimeType = null;
+
             const formContent = document.createElement('div');
             formContent.innerHTML = `
                 <h3 class="text-xl font-bold mb-4 text-center">Guardar en Registro Importante</h3>
@@ -762,11 +767,18 @@
                 </div>
 
                 <div class="mb-4 text-center">
-                    <p class="text-gray-700 text-sm font-bold mb-2">Opcional: Adjuntar una foto</p>
-                    <button type="button" id="openCameraButton" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full flex items-center justify-center mx-auto space-x-2">
-                        <i class="fas fa-camera"></i> <span>Tomar Foto</span>
-                    </button>
-                    <img id="registroPhotoPreview" class="photo-preview mt-4 mx-auto" style="display:none;">
+                    <p class="text-gray-700 text-sm font-bold mb-2">Opcional: Adjuntar una foto o archivo</p>
+                    <div class="flex flex-col items-center justify-center space-y-2">
+                        <button type="button" id="openCameraButton" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full flex items-center justify-center space-x-2">
+                            <i class="fas fa-camera"></i> <span>Tomar Foto</span>
+                        </button>
+                        <input type="file" id="registroFileInput" class="hidden" accept="image/*,application/pdf">
+                        <button type="button" id="selectFileButton" class="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-full flex items-center justify-center space-x-2">
+                            <i class="fas fa-paperclip"></i> <span>Adjuntar Archivo</span>
+                        </button>
+                        <span id="selectedFileNameDisplay" class="text-sm text-gray-600 mt-2"></span>
+                    </div>
+                    <img id="registroPhotoPreview" class="photo-preview mt-4 mx-auto" style="display:none; max-width: 100%; height: auto;">
                 </div>
 
                 <div class="flex justify-center space-x-4">
@@ -779,14 +791,22 @@
             document.body.appendChild(modal);
 
             const openCameraButton = modal.querySelector('#openCameraButton');
+            const registroFileInput = modal.querySelector('#registroFileInput');
+            const selectFileButton = modal.querySelector('#selectFileButton');
+            const selectedFileNameDisplay = modal.querySelector('#selectedFileNameDisplay');
             currentRegistroPhotoPreviewElement = modal.querySelector('#registroPhotoPreview');
 
-            // Show captured image if it already exists
+            // Show captured image if it already exists from previous camera use
             if (capturedImageBase64) {
                 currentRegistroPhotoPreviewElement.src = capturedImageBase64;
                 currentRegistroPhotoPreviewElement.style.display = 'block';
+                selectedFileNameDisplay.textContent = currentFileName || 'Foto capturada';
+                attachedFileBase64 = capturedImageBase64; // Set for current modal session
+                attachedFileName = currentFileName;
+                attachedMimeType = currentMimeType;
             } else {
                 currentRegistroPhotoPreviewElement.style.display = 'none';
+                selectedFileNameDisplay.textContent = '';
             }
 
             openCameraButton.addEventListener('click', () => {
@@ -802,7 +822,49 @@
                 capturedImageBase64 = null; // Clear previous capture when opening camera
                 currentFileName = null;
                 currentMimeType = null;
+                attachedFileBase64 = null; // Clear attached file as we're taking a new photo
+                attachedFileName = null;
+                attachedMimeType = null;
+                selectedFileNameDisplay.textContent = ''; // Clear file name display
+                currentRegistroPhotoPreviewElement.style.display = 'none'; // Hide image preview
                 initCamera();
+            });
+
+            selectFileButton.addEventListener('click', () => {
+                registroFileInput.click(); // Trigger the hidden file input click
+            });
+
+            registroFileInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        attachedFileBase64 = e.target.result.split(',')[1]; // Get base64 part
+                        attachedFileName = file.name;
+                        attachedMimeType = file.type;
+
+                        selectedFileNameDisplay.textContent = `Archivo seleccionado: ${attachedFileName}`;
+
+                        if (file.type.startsWith('image/')) {
+                            currentRegistroPhotoPreviewElement.src = e.target.result;
+                            currentRegistroPhotoPreviewElement.style.display = 'block';
+                        } else {
+                            currentRegistroPhotoPreviewElement.style.display = 'none';
+                        }
+                        // Clear camera-related global variables if a file is attached
+                        capturedImageBase64 = null;
+                        currentFileName = null;
+                        currentMimeType = null;
+                        stopCamera(); // Ensure camera is stopped
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    attachedFileBase64 = null;
+                    attachedFileName = null;
+                    attachedMimeType = null;
+                    selectedFileNameDisplay.textContent = '';
+                    currentRegistroPhotoPreviewElement.style.display = 'none';
+                }
             });
 
             document.getElementById('guardarRegistroBtn').addEventListener('click', async () => {
@@ -826,9 +888,9 @@
                             titulo: titulo,
                             descripcion: descripcion,
                             tipo: tipo,
-                            imagen_base64: capturedImageBase64, // Send image if it exists
-                            nombre_archivo: currentFileName,     // Send file name if it exists
-                            mime_type: currentMimeType         // Send MIME type if it exists
+                            imagen_base64: attachedFileBase64, // Use attachedFileBase64
+                            nombre_archivo: attachedFileName,     // Use attachedFileName
+                            mime_type: attachedMimeType         // Use attachedMimeType
                         })
                     });
                     if (!response.ok) {
@@ -837,12 +899,15 @@
                     }
                     showCustomAlert('Registro guardado con éxito.', 'Guardado Exitoso');
                     modal.remove();
-                    // Clear global camera variables after successful save
+                    // Clear global camera and attached file variables after successful save
                     capturedImageBase64 = null;
                     currentFileName = null;
                     currentMimeType = null;
                     currentRegistroPhotoPreviewElement = null;
-                    console.log("DEBUG: Registro guardado, imagen Base64 y referencia limpiadas.");
+                    attachedFileBase64 = null;
+                    attachedFileName = null;
+                    attachedMimeType = null;
+                    console.log("DEBUG: Registro guardado, imagen/archivo Base64 y referencias limpiadas.");
                 } catch (error) {
                     console.error('Error al guardar el registro:', error);
                     showCustomAlert(`No se pudo guardar el registro: ${error.message}`, 'Error de Guardado');
@@ -851,13 +916,16 @@
 
             document.getElementById('cancelRegistroBtn').addEventListener('click', () => {
                 modal.remove();
-                // Clear global camera variables if registration is canceled
+                // Clear global camera and attached file variables if registration is canceled
                 capturedImageBase64 = null;
                 currentFileName = null;
                 currentMimeType = null;
                 currentRegistroPhotoPreviewElement = null;
+                attachedFileBase64 = null;
+                attachedFileName = null;
+                attachedMimeType = null;
                 stopCamera(); // Ensure camera is stopped if still active
-                console.log("DEBUG: Modal de registro cancelado, imagen y cámara detenidas.");
+                console.log("DEBUG: Modal de registro cancelado, imagen/archivo y cámara detenidas.");
             });
         }
 

@@ -536,8 +536,8 @@ def calculate_total_ingredients_needed(menu_recipes: list) -> dict:
             ingredient_name = ing_detail.get('ingredient_name', 'Desconocido')
             
             # Master unit and standard package quantity from ingredients table
-            unidad_maestra_ingrediente = ing_detail.get('unidad_maestra_ingrediente') # e.g., 'g' for chicken, 'unid' for egg
-            cantidad_estandar_paquete = ing_detail.get('cantidad_estandar_paquete') # e.g., 800 for chicken, 1 for egg
+            unidad_maestra_ingrediente = ing_detail.get('unidad_maestra_ingrediente') # e.g., 'g', 'unid' for egg
+            cantidad_estandar_paquete = ing_detail.get('cantidad_estandar_paquete') # e.g., 800 (grams per package)
 
             if ing_id:
                 # Ensure the recipe unit matches the master unit for direct summing
@@ -862,7 +862,8 @@ def toggle_item_comprada_api(item_id): # Renombrado para evitar conflicto
         if not item:
             return jsonify({'error': 'Ítem no encontrado.'}), 404
 
-        new_state = not item['completada']
+        new_state = not item['comprada'] # Corrected from 'completada' to 'comprada'
+
         update_response = supabase.from_('lista_compra').update({'comprada': new_state}).eq('id', str(item_id)).execute()
 
         if not update_response.data:
@@ -1705,19 +1706,22 @@ def toggle_rutina_completada_dia_api(rutina_id):
         return jsonify({'error': 'La fecha es obligatoria para actualizar el estado de la rutina.'}), 400
 
     try:
-        # Modificado: Usar 'fecha' en lugar de 'fecha_completado'
+        # Check if an entry for this routine_id and date already exists in 'rutina_completada_dia'
         response = supabase.from_('rutina_completada_dia').select('id').eq('rutina_id', str(rutina_id)).eq('fecha', fecha).execute()
 
         if response.data:
-            # Modificado: Usar 'fecha' en lugar de 'fecha_completado'
-            delete_response = supabase.from_('rutina_completada_dia').delete().eq('rutina_id', str(rutina_id)).eq('fecha', fecha).execute()
+            # Entry exists, delete it (mark as incomplete)
+            # Delete by the 'id' of the completion record itself, not the rutina_id
+            completion_record_id = response.data[0]['id']
+            delete_response = supabase.from_('rutina_completada_dia').delete().eq('id', completion_record_id).execute()
             if not delete_response.data:
                 raise Exception("No se pudo desmarcar la rutina como completada.")
             return jsonify({'message': 'Rutina marcada como incompleta para el día.'}), 200
         else:
-            # Modificado: Usar 'fecha' en lugar de 'fecha_completado'
-            insert_data = {'rutina_id': str(rutina_id), 'fecha': fecha}
-            insert_response = supabase.from_('daily_meal_completion').insert(insert_data).execute()
+            # No entry exists, insert a new one (mark as completed)
+            # Generate a new UUID for the primary key ('id') of the 'rutina_completada_dia' table
+            insert_data = {'id': generate_uuid(), 'rutina_id': str(rutina_id), 'fecha': fecha}
+            insert_response = supabase.from_('rutina_completada_dia').insert(insert_data).execute()
             if not insert_response.data:
                 raise Exception("No se pudo marcar la rutina como completada.")
             return jsonify({'message': 'Rutina marcada como completada para el día.'}), 201
@@ -1794,6 +1798,7 @@ def add_cita_api():
     nombre = data.get('nombre')
     fecha = data.get('fecha')
     hora = data.get('hora')
+    hora_fin = data.get('hora_fin') # Captura hora_fin
     recordatorio = data.get('recordatorio')
 
     if not nombre or not fecha:
@@ -1803,17 +1808,20 @@ def add_cita_api():
         datetime.strptime(fecha, '%Y-%m-%d')
         if hora:
             datetime.strptime(hora, '%H:%M')
+        if hora_fin: # Valida hora_fin
+            datetime.strptime(hora_fin, '%H:%M')
     except ValueError:
         return jsonify({'error': 'Formato de fecha u hora inválido. Usar (YYYY-MM-DD) y HH:MM'}), 400
 
     hora_para_db = hora if hora else None
+    hora_fin_para_db = hora_fin if hora_fin else None # Prepara hora_fin para DB
 
     try:
         # Añadido 'notified': False por defecto al crear una cita
-        insert_data = {'nombre': nombre, 'fecha': fecha, 'hora': hora_para_db, 'completada': False, 'recordatorio': recordatorio, 'notified': False}
+        insert_data = {'nombre': nombre, 'fecha': fecha, 'hora': hora_para_db, 'hora_fin': hora_fin_para_db, 'completada': False, 'recordatorio': recordatorio, 'notified': False}
         response = supabase.from_('cita').insert(insert_data).execute()
         new_cita = response.data[0]
-        return jsonify({'id': new_cita['id'], 'nombre': new_cita['nombre'], 'fecha': new_cita['fecha'], 'hora': new_cita['hora'], 'completada': new_cita['completada'], 'recordatorio': new_cita.get('recordatorio'), 'notified': new_cita.get('notified')}), 201
+        return jsonify({'id': new_cita['id'], 'nombre': new_cita['nombre'], 'fecha': new_cita['fecha'], 'hora': new_cita['hora'], 'hora_fin': new_cita.get('hora_fin'), 'completada': new_cita['completada'], 'recordatorio': new_cita.get('recordatorio'), 'notified': new_cita.get('notified')}), 201
     except Exception as e:
         print(f"Error al añadir cita a Supabase: {e}")
         traceback.print_exc()
@@ -1827,6 +1835,7 @@ def update_cita_api(cita_id):
     nombre = data.get('nombre')
     fecha = data.get('fecha')
     hora = data.get('hora')
+    hora_fin = data.get('hora_fin') # Captura hora_fin
     recordatorio = data.get('recordatorio')
 
     if not nombre or not fecha:
@@ -1836,19 +1845,24 @@ def update_cita_api(cita_id):
         datetime.strptime(fecha, '%Y-%m-%d')
         if hora:
             datetime.strptime(hora, '%H:%M')
+        if hora_fin: # Valida hora_fin
+            datetime.strptime(hora_fin, '%H:%M')
     except ValueError:
         return jsonify({'error': 'Formato de fecha u hora inválido. Usar (YYYY-MM-DD) y HH:MM'}), 400
 
     hora_para_db = hora if hora else None
+    hora_fin_para_db = hora_fin if hora_fin else None # Prepara hora_fin para DB
 
     try:
         # Al actualizar una cita, la marcamos como no notificada de nuevo
-        update_data = {'nombre': nombre, 'fecha': fecha, 'hora': hora_para_db, 'recordatorio': recordatorio, 'notified': False}
+        update_data = {'nombre': nombre, 'fecha': fecha, 'hora': hora_para_db, 'hora_fin': hora_fin_para_db, 'recordatorio': recordatorio, 'notified': False}
         update_response = supabase.from_('cita').update(update_data).eq('id', str(cita_id)).execute()
 
         if not update_response.data:
             return jsonify({'error': 'Cita no encontrada para actualizar.'}), 404
-        return jsonify({'message': 'Cita actualizada exitosamente.', 'id': str(cita_id)}), 200
+        
+        updated_cita = update_response.data[0] # Obtener los datos actualizados
+        return jsonify({'message': 'Cita actualizada exitosamente.', 'id': str(cita_id), 'nombre': updated_cita['nombre'], 'fecha': updated_cita['fecha'], 'hora': updated_cita['hora'], 'hora_fin': updated_cita.get('hora_fin'), 'recordatorio': updated_cita.get('recordatorio'), 'notified': updated_cita.get('notified')}), 200
     except Exception as e:
         print(f"Error al actualizar cita en Supabase: {e}")
         traceback.print_exc()
@@ -1859,7 +1873,7 @@ def get_all_citas_api():
     if supabase is None:
         return jsonify({'error': 'Servicio de base de datos no disponible.'}), 503
     try:
-        response = supabase.from_('cita').select('id,nombre,fecha,hora,completada,recordatorio,notified').order('fecha').order('hora').execute()
+        response = supabase.from_('cita').select('id,nombre,fecha,hora,hora_fin,completada,recordatorio,notified').order('fecha').order('hora').execute()
         citas = response.data
         return jsonify([
             {
@@ -1867,6 +1881,7 @@ def get_all_citas_api():
                 'nombre': cita['nombre'],
                 'fecha': cita['fecha'],
                 'hora': cita['hora'],
+                'hora_fin': cita.get('hora_fin'), # Incluye hora_fin
                 'completada': cita['completada'],
                 'recordatorio': cita.get('recordatorio'),
                 'notified': cita.get('notified', False) 
@@ -1887,7 +1902,7 @@ def get_citas_by_date_api(fecha):
         return jsonify({'error': 'Formato de fecha inválido. Usar (YYYY-MM-DD)'}), 400
 
     try:
-        response = supabase.from_('cita').select('id,nombre,fecha,hora,completada,recordatorio,notified').eq('fecha', fecha).order('hora').execute()
+        response = supabase.from_('cita').select('id,nombre,fecha,hora,hora_fin,completada,recordatorio,notified').eq('fecha', fecha).order('hora').execute()
         citas = response.data
         return jsonify([
             {
@@ -1895,6 +1910,7 @@ def get_citas_by_date_api(fecha):
                 'nombre': cita['nombre'],
                 'fecha': cita['fecha'],
                 'hora': cita['hora'],
+                'hora_fin': cita.get('hora_fin'), # Incluye hora_fin
                 'completada': cita['completada'],
                 'recordatorio': cita.get('recordatorio'),
                 'notified': cita.get('notified', False) 
@@ -1915,7 +1931,7 @@ def get_citas_for_month_api(year, month):
     end_date = date(year, month, calendar.monthrange(year, month)[1])
 
     try:
-        response = supabase.from_('cita').select('id,nombre,fecha,hora,completada,recordatorio,notified').gte('fecha', str(start_date)).lte('fecha', str(end_date)).order('fecha').order('hora').execute()
+        response = supabase.from_('cita').select('id,nombre,fecha,hora,hora_fin,completada,recordatorio,notified').gte('fecha', str(start_date)).lte('fecha', str(end_date)).order('fecha').order('hora').execute()
         citas = response.data
 
         processed_citas = []
@@ -1928,6 +1944,7 @@ def get_citas_for_month_api(year, month):
                 'nombre': cita['nombre'],
                 'fecha': cita['fecha'],
                 'hora': cita['hora'],
+                'hora_fin': cita.get('hora_fin'), # Incluye hora_fin
                 'completada': cita['completada'],
                 'dias_restantes': diff_days,
                 'recordatorio': cita.get('recordatorio'),
@@ -1946,7 +1963,8 @@ def get_proximas_citas_api(year, month):
 
     today = datetime.now().date()
     try:
-        response = supabase.from_('cita').select('id,nombre,fecha,hora,completada,recordatorio,notified').gte('fecha', str(today)).order('fecha').order('hora').execute()
+        # Selecciona hora_fin aquí
+        response = supabase.from_('cita').select('id,nombre,fecha,hora,hora_fin,completada,recordatorio,notified').gte('fecha', str(today)).order('fecha').order('hora').execute()
         citas = response.data
 
         processed_citas = []
@@ -1959,6 +1977,7 @@ def get_proximas_citas_api(year, month):
                 'nombre': cita['nombre'],
                 'fecha': cita['fecha'],
                 'hora': cita['hora'],
+                'hora_fin': cita.get('hora_fin'), # Asegura que hora_fin se incluye
                 'completada': cita['completada'],
                 'dias_restantes': diff_days,
                 'recordatorio': cita.get('recordatorio'),
@@ -1975,7 +1994,7 @@ def get_cita_by_id_api(cita_id):
     if supabase is None:
         return jsonify({'error': 'Servicio de base de datos no disponible.'}), 503
     try:
-        response = supabase.from_('cita').select('id,nombre,fecha,hora,completada,recordatorio,notified').eq('id', str(cita_id)).limit(1).execute()
+        response = supabase.from_('cita').select('id,nombre,fecha,hora,hora_fin,completada,recordatorio,notified').eq('id', str(cita_id)).limit(1).execute()
         cita = response.data[0] if response.data else None
         if not cita:
             return jsonify({'error': 'Cita no encontrada.'}), 404
@@ -1984,6 +2003,7 @@ def get_cita_by_id_api(cita_id):
             'nombre': cita['nombre'],
             'fecha': cita['fecha'],
             'hora': cita['hora'],
+            'hora_fin': cita.get('hora_fin'), # Incluye hora_fin
             'completada': cita['completada'],
             'recordatorio': cita.get('recordatorio'),
             'notified': cita.get('notified', False) 
@@ -2478,7 +2498,7 @@ def handle_weekly_menu_save_api():
         return jsonify({'error': 'Los datos del menú son obligatorios.'}), 400
 
     menu_json_str = json.dumps(menu)
-    current_date_str = str(date.today()) # Obtiene la fecha actual en formato YYYY-MM-DD
+    current_date_str = str(date.today()) # Obtiene la fecha actual en formatoYYYY-MM-DD
 
     try:
         if request.method == 'PUT':
@@ -2586,7 +2606,8 @@ def update_meal_completion_status_api(fecha):
                 return jsonify({'error': 'No se pudo actualizar el estado de completado de la comida.'}), 500
             return jsonify({'message': f'Estado de {meal_type} actualizado a {completed}.'}), 200
         else: # No entry exists, insert a new one
-            insert_data = {'fecha': fecha, 'meal_type': meal_type, 'completed': completed}
+            # Generate a new UUID for the primary key of daily_meal_completion
+            insert_data = {'id': generate_uuid(), 'fecha': fecha, 'meal_type': meal_type, 'completed': completed}
             insert_response = supabase.from_('daily_meal_completion').insert(insert_data).execute()
             if not insert_response.data:
                 return jsonify({'error': 'No se pudo guardar el estado de completado de la comida.'}), 500

@@ -55,7 +55,7 @@
         const quickCitaRequisitoInput = document.getElementById('quickCitaRequisitoInput');
         const quickAddRequisitoBtn = document.getElementById('quickAddRequisitoBtn');
         const quickRequisitosListDisplay = document.getElementById('quickRequisitosListDisplay');
-        let currentQuickCitaRequisitos = []; // Array to hold requirements for quick appointment
+        // Removed `let currentQuickCitaRequisitos = [];` as it's now managed by `currentModalRequisitos` in add_activity.js
 
         const saveQuickCitaBtn = document.getElementById('saveQuickCitaBtn');
         const cancelQuickCitaBtn = document.getElementById('cancelQuickCitaBtn');
@@ -81,16 +81,15 @@
         const modalTaskFechaInput = document.getElementById('modalTaskFechaInput'); // New for task editing
         const editEntryId = document.getElementById('editEntryId'); // Hidden input for ID
 
-        let currentModalRequisitos = []; // Array to hold requirements for the main activity modal
+        // `currentModalRequisitos` is now managed in `add_activity.js` to avoid redeclaration.
+        // let currentModalRequisitos = []; 
 
         const saveModalEntryBtn = document.getElementById('saveModalEntryBtn');
         const cancelModalEntryBtn = document.getElementById('cancelModalEntryBtn');
 
 
-        // NEW: Cache for all ingredients (for shopping list recognition)
-        let allIngredients = [];
+        // Removed `let allIngredients = [];` from here as it's declared in `add_activity.js`
 
-       
 
         // Function to update the currently displayed meal based on currentMealIndex
         function updateDisplayedMeal(todayMenu) {
@@ -234,7 +233,7 @@
         // INITIALIZATION
         document.addEventListener('DOMContentLoaded', async () => {
             displayFechaActual();
-            fetchAllIngredients(); // Fetch all ingredients for the quick list button
+            // fetchAllIngredients(); // Moved to add_activity.js and called there
             fetchCombinedAgenda(); // This will also trigger fetchUpcomingCitas and fetchCountsForButtons
 
             // Fetch recipes and weekly menu for the "Comida de Hoy" section
@@ -251,5 +250,58 @@
                     const mealType = event.currentTarget.dataset.mealType;
                     toggleMealCompletion(mealType);
                 });
+            });
+
+            // Event listeners for quick action buttons to handle navigation or form submission
+            quickListButton.addEventListener('click', () => {
+                const inputText = entryTextInput.value.trim();
+                console.log('Quick List Button clicked. Input text:', inputText);
+                if (inputText === '') {
+                    console.log('Input is empty, navigating to /lista');
+                    window.location.href = '/lista'; // Navigate to shopping list page
+                } else {
+                    console.log('Input has text, calling handleQuickListAdd');
+                    if (typeof window.handleQuickListAdd === 'function') {
+                        window.handleQuickListAdd(inputText);
+                        entryTextInput.value = ''; // Clear input after handling
+                    } else {
+                        console.error('window.handleQuickListAdd is not defined.');
+                    }
+                }
+            });
+
+            quickNotesButton.addEventListener('click', () => {
+                const inputText = entryTextInput.value.trim();
+                console.log('Quick Notes Button clicked. Input text:', inputText);
+                if (inputText === '') {
+                    console.log('Input is empty, navigating to /notas');
+                    window.location.href = '/notas'; // Navigate to notes page
+                } else {
+                    console.log('Input has text, calling handleQuickNoteAdd');
+                    if (typeof window.handleQuickNoteAdd === 'function') {
+                        window.handleQuickNoteAdd(inputText);
+                        entryTextInput.value = ''; // Clear input after handling
+                    } else {
+                        console.error('window.handleQuickNoteAdd is not defined.');
+                    }
+                }
+            });
+
+            quickCitaButton.addEventListener('click', () => {
+                const inputText = entryTextInput.value.trim();
+                console.log('Quick Cita Button clicked. Input text:', inputText);
+                if (inputText === '') {
+                    console.log('Input is empty, navigating to /citas');
+                    window.location.href = '/citas'; // Navigate to appointments page
+                } else {
+                    console.log('Input has text, calling showQuickCitaModalLogic');
+                    // Call the function from add_activity.js to show the quick appointment modal
+                    if (typeof window.showQuickCitaModalLogic === 'function') {
+                        window.showQuickCitaModalLogic(inputText);
+                        entryTextInput.value = ''; // Clear input after handling
+                    } else {
+                        console.error('window.showQuickCitaModalLogic is not defined.');
+                    }
+                }
             });
         });

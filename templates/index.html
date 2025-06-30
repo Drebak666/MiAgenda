@@ -143,10 +143,7 @@
                 <i class="fas fa-file-alt text-2xl mb-1"></i>
                 <span>Registros</span>
             </a>
-            <a href="/alimentacion" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-yellow-400 text-white">
-                <i class="fas fa-utensils text-2xl mb-1"></i>
-                <span>Alimentación</span>
-            </a>
+           
             <a href="/documentacion" class="boton flex flex-col items-center justify-center p-3 rounded-lg shadow hover:shadow-lg transition-shadow bg-pink-400 text-white">
                 <i class="fas fa-folder-open text-2xl mb-1"></i>
                 <span>Documentos</span>
@@ -200,6 +197,7 @@
         <div class="bg-white p-6 rounded-lg shadow-xl custom-modal-content scrollable-modal-content">
             <h3 class="text-xl font-bold mb-4 text-center">Registrar Cita Rápida</h3>
             <p id="quickCitaTextDisplay" class="mb-4 text-gray-700 text-center"></p>
+            <input type="hidden" id="quickCitaHiddenName"> <!-- NUEVO CAMPO OCULTO -->
             <div class="mb-4">
                 <label for="quickCitaFechaInput" class="block text-gray-700 text-sm font-bold mb-2">Fecha de la Cita:</label>
                 <input type="date" id="quickCitaFechaInput" required class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
@@ -207,6 +205,11 @@
             <div class="mb-6">
                 <label for="quickCitaHoraInput" class="block text-gray-700 text-sm font-bold mb-2">Hora (opcional):</label>
                 <input type="time" id="quickCitaHoraInput" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+            </div>
+            <!-- NEW: Hora Fin for Quick Cita Modal -->
+            <div class="mb-6">
+                <label for="quickCitaHoraFinInput" class="block text-gray-700 text-sm font-bold mb-2">Hora Fin (opcional):</label>
+                <input type="time" id="quickCitaHoraFinInput" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
             </div>
 
             <!-- Requirements section for the quick appointment modal -->

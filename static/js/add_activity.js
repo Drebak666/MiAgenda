@@ -1,6 +1,14 @@
+// add_activity.js
+
 // --- SECTION 2: ADD ACTIVITY LOGIC ---
-// Functions related to the unified form for adding tasks, routines, and appointments.
-// Also includes quick action buttons.
+// Handles the unified form for adding tasks, routines, and appointments.
+
+// Global variable to store all ingredients for shopping list recognition
+let allIngredients = [];
+
+// Make currentModalRequisitos a global variable by attaching it to the window object
+// This ensures it's accessible across different script files.
+window.currentModalRequisitos = []; 
 
 // Fetches all ingredients from the API (for shopping list recognition)
 async function fetchAllIngredients() {
@@ -114,441 +122,486 @@ function parseShoppingListInputAndMatchIngredients(inputString) {
     return uniqueItems;
 }
 
-// Event listener for the quick list button
-quickListButton.addEventListener('click', async () => {
-    const rawInput = entryTextInput.value.trim();
-    if (!rawInput) {
-        window.location.href = '/lista'; // If no text, just go to the list
-        return;
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Call fetchAllIngredients immediately when the DOM is loaded
+    fetchAllIngredients();
+
+    const unifiedEntryForm = document.getElementById('unifiedEntryForm');
+    const entryTextInput = document.getElementById('entryTextInput');
+    const chooseEntryTypeModal = document.getElementById('chooseEntryTypeModal');
+    const chooseEntryTypeModalTitle = document.getElementById('chooseEntryTypeModalTitle');
+    const activityTextDisplay = document.getElementById('activityTextDisplay');
+    const modalEntryType = document.getElementById('modalEntryType');
+    const modalEntryText = document.getElementById('modalEntryText');
+    const modalStartTimeInput = document.getElementById('modalStartTimeInput');
+    const modalEndTimeInput = document.getElementById('modalEndTimeInput'); // New
+    const modalEndTimeDiv = document.getElementById('modalEndTimeDiv'); // New
+    const modalRoutineFields = document.getElementById('modalRoutineFields');
+    const modalTaskDateFields = document.getElementById('modalTaskDateFields');
+    const modalCitaFields = document.getElementById('modalCitaFields');
+    const modalTaskFechaInput = document.getElementById('modalTaskFechaInput');
+    const modalCitaFechaInput = document.getElementById('modalCitaFechaInput');
+    const saveModalEntryBtn = document.getElementById('saveModalEntryBtn');
+    const cancelModalEntryBtn = document.getElementById('cancelModalEntryBtn');
+    const editEntryId = document.getElementById('editEntryId'); // Hidden input for editing
+
+    // Quick Cita Modal elements
+    const quickCitaModal = document.getElementById('quickCitaModal');
+    const quickCitaTextDisplay = document.getElementById('quickCitaTextDisplay');
+    const quickCitaFechaInput = document.getElementById('quickCitaFechaInput');
+    const quickCitaHoraInput = document.getElementById('quickCitaHoraInput');
+    const quickCitaHoraFinInput = document.getElementById('quickCitaHoraFinInput'); // New
+    const quickCitaRequisitoInput = document.getElementById('quickCitaRequisitoInput');
+    const quickAddRequisitoBtn = document.getElementById('quickAddRequisitoBtn');
+    const quickRequisitosListDisplay = document.getElementById('quickRequisitosListDisplay');
+    const saveQuickCitaBtn = document.getElementById('saveQuickCitaBtn');
+    const cancelQuickCitaBtn = document.getElementById('cancelQuickCitaBtn');
+    const quickCitaHiddenName = document.getElementById('quickCitaHiddenName'); // NEW REFERENCE TO HIDDEN INPUT
+
+    // Quick Action Buttons (references, listeners will be in main.js)
+    // const quickCitaButton = document.getElementById('quickCitaButton');
+    // const quickListButton = document.getElementById('quickListButton');
+    // const quickNotesButton = document.getElementById('quickNotesButton');
+    const generateShoppingListButton = document.getElementById('generateShoppingListButton');
+
+    // Counters for quick action buttons (references, updated by fetchCountsForButtons)
+    // const quickListCountElem = document.getElementById('quickListCount');
+    // const quickNotesCountElem = document.getElementById('quickNotesCount');
+    // const quickCitaCountElem = document.getElementById('quickCitaCount');
+
+    // let currentModalRequisitos = []; // MOVED THIS DECLARATION TO GLOBAL SCOPE (window.currentModalRequisitos)
+
+    // Day mapping for routines
+    const dayNameToNumber = {
+        'Domingo': 0, 'Lunes': 1, 'Martes': 2, 'Miércoles': 3,
+        'Jueves': 4, 'Viernes': 5, 'Sábado': 6
+    };
+    const modalRoutineDayCheckboxes = document.querySelectorAll('input[name="modalRoutineDay"]');
+
+    // Function to format date toYYYY-MM-DD
+    function formatFecha(date) {
+        const d = new Date(date);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 
-    // MODIFIED: Use the new smart parsing function that also links ingredients
-    const itemsToAdd = parseShoppingListInputAndMatchIngredients(rawInput);
-
-    if (itemsToAdd.length === 0) {
-        showCustomAlert('No se pudieron identificar ítems válidos para añadir a la lista.', 'Entrada Inválida');
-        return;
-    }
-
-    let allItemsAddedSuccessfully = true;
-    for (const itemData of itemsToAdd) {
-        try {
-            const response = await fetch('/api/lista_compra', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ item: itemData.item, ingredient_id: itemData.ingredient_id })
-            });
-            if (!response.ok) {
-                let errorMessage = `HTTP error! status: ${response.status}`;
-                const contentType = response.headers.get('content-type');
-                const responseBody = await response.text();
-                if (contentType && contentType.includes('application/json')) {
-                    try {
-                        const errorData = JSON.parse(responseBody);
-                        errorMessage = errorData.error || errorMessage;
-                    } catch (jsonParseError) {
-                        console.warn("Fallo en el parseo JSON para error de lista_compra, volviendo a texto sin procesar.", jsonParseError);
-                        errorMessage = `El servidor respondió con un JSON inválido. Código: ${response.status}. Mensaje: ${responseBody.substring(0, 100)}...`;
-                }
-            } else {
-                    errorMessage = `El servidor respondió con un error no JSON. Código: ${response.status}. Mensaje: ${responseBody.substring(0, 100)}...`;
-                    console.error("Respuesta de error no JSON del servidor:", responseBody);
-                }
-                throw new Error(errorMessage);
-            }
-            console.log(`Item "${itemData.item}" (Ingrediente ID: ${itemData.ingredient_id || 'N/A'}) añadido con éxito a la lista de la compra.`);
-        } catch (error) {
-            console.error(`Error al añadir el ítem "${itemData.item}" a la lista de la compra:`, error);
-            showCustomAlert(`No se pudo añadir "${itemData.item}" a la lista de la compra: ${error.message}`, 'Error de Lista');
-            allItemsAddedSuccessfully = false;
-        }
-    }
-    entryTextInput.value = '';
-    // No redirect if not all items were successfully added
-    if (allItemsAddedSuccessfully) {
-         window.location.href = '/lista';
-    }
-});
-
-// NEW: Event listener for the "Generate Shopping List" button
-generateShoppingListButton.addEventListener('click', async () => {
-    try {
-        // Display a loading message
-        showCustomAlert('Generando lista de compra basada en el menú de hoy...', 'Generando Lista');
-
-        const response = await fetch('/api/lista_compra/generate', {
-            method: 'POST', // This endpoint triggers the generation
-            headers: { 'Content-Type': 'application/json' }
-        });
-
-        if (!response.ok) {
-            let errorMessage = `HTTP error! status: ${response.status}`;
-            const contentType = response.headers.get('content-type');
-            const responseBody = await response.text();
-            if (contentType && contentType.includes('application/json')) {
-                try {
-                    const errorData = JSON.parse(responseBody);
-                    errorMessage = errorData.error || errorMessage;
-                } catch (jsonParseError) {
-                    console.warn("Fallo en el parseo JSON para error de generación de lista de compra, volviendo a texto sin procesar.", jsonParseError);
-                    errorMessage = `El servidor respondió con un JSON inválido. Código: ${response.status}. Mensaje: ${responseBody.substring(0, 100)}...`;
-                }
-            } else {
-                errorMessage = `El servidor respondió con un error no JSON. Código: ${response.status}. Mensaje: ${responseBody.substring(0, 100)}...`;
-                console.error("Respuesta de error no JSON del servidor:", responseBody);
-            }
-            throw new Error(errorMessage);
-        }
-
-        const result = await response.json();
-        console.log('Generación de lista de compra completada:', result.message);
-        showCustomAlert('Lista de compra generada exitosamente. Revisa la sección de Lista de Compra.', 'Éxito');
-        // Optionally redirect to the shopping list page after a short delay
-        setTimeout(() => {
-            window.location.href = '/lista';
-        }, 1500);
-
-    } catch (error) {
-        console.error('Error al generar la lista de compra:', error);
-        showCustomAlert(`No se pudo generar la lista de compra: ${error.message}`, 'Error');
-    }
-});
-
-
-// Logic for Quick Notes button
-quickNotesButton.addEventListener('click', async () => {
-    const rawNoteText = entryTextInput.value; // Get raw value from input
-    const noteText = rawNoteText.trim(); // Trim leading/trailing whitespace
-
-    if (noteText.length === 0) { // If the text is empty after trimming, redirect to the notes page.
-        window.location.href = '/notas';
-        return; // Stop function execution here.
-    }
-
-    // If we get here, the text is not empty, try to save it.
-    try {
-        const response = await fetch('/api/notas', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ texto: noteText })
-        });
-        if (!response.ok) {
-            let errorMessage = `HTTP error! status: ${response.status}`;
-            const contentType = response.headers.get('content-type');
-            const responseBody = await response.text();
-            if (contentType && contentType.includes('application/json')) {
-                try {
-                    const errorData = JSON.parse(responseBody);
-                    errorMessage = errorData.error || errorMessage;
-                } catch (jsonParseError) {
-                    console.warn("Fallo en el parseo JSON para error de añadir_nota, volviendo a texto sin procesar.", jsonParseError);
-                    errorMessage = `El servidor respondió con un JSON inválido. Código: ${response.status}. Mensaje: ${responseBody.substring(0, 100)}...`;
-                }
-            } else {
-                errorMessage = `El servidor respondió con un error no JSON. Código: ${response.status}. Mensaje: ${responseBody.substring(0, 100)}...`;
-                console.error("Respuesta de error no JSON del servidor:", responseBody);
-            }
-            throw new Error(errorMessage);
-        }
-        showCustomAlert('Nota rápida guardada con éxito.', 'Nota Guardada');
-        entryTextInput.value = ''; // Clear the input field after saving
-        fetchCombinedAgenda(); // Update counters, including notes.
-        window.location.href = '/notas'; // Redirect to the notes page after saving
-    } catch (error) {
-        console.error('Error al guardar la nota rápida:', error);
-        showCustomAlert(`No se pudo guardar la nota rápida. Error: ${error.message}`, 'Error al Guardar Nota');
-    }
-});
-
-// Logic for Quick Appointments button
-quickCitaButton.addEventListener('click', async () => {
-    const citaText = entryTextInput.value.trim();
-
-    if (!citaText) {
-        window.location.href = '/citas';
-        return;
-    }
-
-    quickCitaTextDisplay.textContent = `Registrar cita: "${citaText}"`;
-    quickCitaFechaInput.value = formatFecha(fechaActual);
-    quickCitaFechaInput.min = formatFecha(fechaActual);
-    // Quick cita modal doesn't use the entryTimeInput from the main form anymore,
-    // as it's been removed. It will default to empty.
-    quickCitaHoraInput.value = ''; // Ensure it's empty or set based on user's preference for quick add
-
-    // Reset requirements for quick appointment modal
-    currentQuickCitaRequisitos = [];
-    renderRequisitosList(currentQuickCitaRequisitos, quickRequisitosListDisplay, true); // Render as editable in modal
-
-    quickCitaModal.style.display = 'flex';
-});
-
-// Add requirement for quick appointment modal
-quickAddRequisitoBtn.addEventListener('click', () => {
-    const reqText = quickCitaRequisitoInput.value.trim();
-    if (reqText) {
-        currentQuickCitaRequisitos.push({ text: reqText, checked: false });
-        quickCitaRequisitoInput.value = '';
-        renderRequisitosList(currentQuickCitaRequisitos, quickRequisitosListDisplay, true);
-    }
-});
-
-
-saveQuickCitaBtn.addEventListener('click', async () => {
-    const citaText = entryTextInput.value.trim(); // Get from the main input, as it's passed here
-    const citaFecha = quickCitaFechaInput.value;
-    const citaHora = quickCitaHoraInput.value.trim();
-
-    if (!citaFecha) {
-        showCustomAlert('La fecha de la cita es obligatoria.', 'Campo Obligatorio');
-        return;
-    }
-
-    try {
-        const response = await fetch('/api/citas', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                nombre: citaText,
-                fecha: citaFecha,
-                hora: citaHora || null,
-                recordatorio: JSON.stringify(currentQuickCitaRequisitos) // Send requirements as JSON string
-            })
-        });
-        if (!response.ok) {
-            let errorMessage = `HTTP error! status: ${response.status}`;
-            const contentType = response.headers.get('content-type');
-            const responseBody = await response.text();
-            if (contentType && contentType.includes('application/json')) {
-                try {
-                    const errorData = JSON.parse(responseBody);
-                    errorMessage = errorData.error || errorMessage;
-                } catch (jsonParseError) {
-                    console.warn("Fallo en el parseo JSON para error de añadir_cita (rápida), volviendo a texto sin procesar.", jsonParseError);
-                    errorMessage = `El servidor respondió con un JSON inválido. Código: ${response.status}. Mensaje: ${responseBody.substring(0, 100)}...`;
-                }
-            } else {
-                errorMessage = `El servidor respondió con un error no JSON. Código: ${response.status}. Mensaje: ${responseBody.substring(0, 100)}...`;
-                console.error("Respuesta de error no JSON del servidor:", responseBody);
-            }
-            throw new Error(errorMessage);
-        }
-        showCustomAlert('Cita rápida guardada con éxito.', 'Cita Guardada');
-        quickCitaModal.style.display = 'none';
-        entryTextInput.value = '';
-        currentQuickCitaRequisitos = []; // Clear requirements after saving
-        renderRequisitosList(currentQuickCitaRequisitos, quickRequisitosListDisplay, true); // Clear display
-
-        fetchCombinedAgenda(); // Re-fetch to update upcoming appointments on main page
-    } catch (error) {
-        console.error('Error al guardar la cita rápida:', error);
-        showCustomAlert(`No se pudo guardar la cita rápida: ${error.message}`, 'Error al Guardar Cita');
-    }
-});
-
-cancelQuickCitaBtn.addEventListener('click', () => {
-    quickCitaModal.style.display = 'none';
-    currentQuickCitaRequisitos = []; // Clear requirements on cancel
-    renderRequisitosList(currentQuickCitaRequisitos, quickRequisitosListDisplay, true); // Clear display
-});
-
-
-// NEW: Show Choose Entry Type Modal (or Edit Modal)
-unifiedEntryForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const activityDescription = entryTextInput.value.trim();
-
-    if (!activityDescription) {
-        showCustomAlert('La descripción de la actividad no puede estar vacía.', 'Campo Obligatorio');
-        return;
-    }
-
-    // Set for new entry
-    chooseEntryTypeModalTitle.textContent = 'Elegir Tipo de Actividad';
-    editEntryId.value = ''; // Clear ID for new entry
-    modalEntryType.disabled = false; // Enable type selection for new entry
-
-    modalEntryText.value = activityDescription;
-    activityTextDisplay.textContent = `Registrar: "${activityDescription}"`; // Still show in paragraph below title
-
-    modalStartTimeInput.value = ''; // Clear previous values
-    modalEndTimeInput.value = '';
-    modalEntryType.value = 'tarea'; // Default to Tarea
-    
-    // Hide all specific fields and show end time by default
-    modalRoutineFields.style.display = 'none';
-    modalCitaFields.style.display = 'none';
-    modalTaskDateFields.style.display = 'block'; // Show task date field for new tasks
-    modalEndTimeDiv.style.display = 'block';
-
-    // Set default task date to today
+    // Set min date for date inputs
     const today = new Date();
     const todayFormatted = formatFecha(today);
-    modalTaskFechaInput.value = todayFormatted;
     modalTaskFechaInput.min = todayFormatted;
+    modalCitaFechaInput.min = todayFormatted;
+    quickCitaFechaInput.min = todayFormatted;
 
-    currentModalRequisitos = []; // Reset requirements for this modal
-    renderRequisitosList(currentModalRequisitos, modalRequisitosListDisplay, true); // Clear display
-
-    chooseEntryTypeModal.style.display = 'flex';
-});
-
-// NEW: Event listener for type change within the new modal
-modalEntryType.addEventListener('change', () => {
-    const selectedType = modalEntryType.value;
-    // Hide all specific fields first
-    modalRoutineFields.style.display = 'none';
-    modalCitaFields.style.display = 'none';
-    modalTaskDateFields.style.display = 'none';
-    modalEndTimeDiv.style.display = 'block'; // Always show end time in this modal by default
-
-    if (selectedType === 'rutina') {
-        modalRoutineFields.style.display = 'block';
-        modalRoutineDayCheckboxes.forEach(checkbox => checkbox.checked = false); // Clear checkboxes
-    } else if (selectedType === 'cita') {
-        modalCitaFields.style.display = 'block';
-        modalEndTimeDiv.style.display = 'none'; // Citas don't use hora_fin
-        // Reset cita requirements when type changes
-        currentModalRequisitos = [];
-        renderRequisitosList(currentModalRequisitos, modalRequisitosListDisplay, true);
-        // Set min date for citaFechaInput
-        const today = new Date();
-        const todayFormatted = formatFecha(today);
-        modalCitaFechaInput.min = todayFormatted;
-        modalCitaFechaInput.value = todayFormatted;
-    } else if (selectedType === 'tarea') {
-        modalTaskDateFields.style.display = 'block';
-        const today = new Date();
-        const todayFormatted = formatFecha(today);
-        modalTaskFechaInput.min = todayFormatted;
-        modalTaskFechaInput.value = todayFormatted;
-    }
-});
-
-// NEW: Add requirement for the main activity modal
-modalAddRequisitoBtn.addEventListener('click', () => {
-    const reqText = modalCitaRequisitoInput.value.trim();
-    if (reqText) {
-        currentModalRequisitos.push({ text: reqText, checked: false });
-        modalCitaRequisitoInput.value = '';
-        renderRequisitosList(currentModalRequisitos, modalRequisitosListDisplay, true);
-    }
-});
-
-// NEW: Save button for the new "Choose Activity Type" modal (handles Add and Edit)
-saveModalEntryBtn.addEventListener('click', async () => {
-    const type = modalEntryType.value;
-    const id = editEntryId.value; // Will be empty for new entries
-    const text = modalEntryText.value.trim(); // Get from the modal's text input
-    const startTime = modalStartTimeInput.value.trim();
-    const endTime = modalEndTimeInput.value.trim();
-
-    if (!text) {
-        showCustomAlert('La descripción no puede estar vacía.', 'Campo Obligatorio');
-        return;
-    }
-
-    let url = '';
-    let method = '';
-    let payload = {};
-
-    if (id) { // Editing existing entry
-        method = 'PUT';
-        if (type === 'tarea') {
-            url = `/api/tareas/${id}`;
-            payload = { fecha: modalTaskFechaInput.value, texto: text, hora: startTime || null };
-        } else if (type === 'rutina') {
-            url = `/api/rutinas/${id}`;
-            const diasSeleccionados = Array.from(modalRoutineDayCheckboxes)
-                                        .filter(checkbox => checkbox.checked)
-                                        .map(checkbox => dayNameToNumber[checkbox.value]);
-            if (!startTime || diasSeleccionados.length === 0) {
-                showCustomAlert('Para una rutina, la hora de inicio y al menos un día son obligatorios.', 'Campos Obligatorios');
-                return;
-            }
-            payload = { nombre: text, hora: startTime, hora_fin: endTime || null, dias: diasSeleccionados };
-        } else if (type === 'cita') {
-            url = `/api/citas/${id}`;
-            const citaFecha = modalCitaFechaInput.value;
-            if (!citaFecha) {
-                showCustomAlert('La fecha de la cita es obligatoria.', 'Campo Obligatorio');
-                return;
-            }
-            payload = { nombre: text, fecha: citaFecha, hora: startTime || null, recordatorio: JSON.stringify(currentModalRequisitos) };
+    // --- Unified Entry Form Submission ---
+    unifiedEntryForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const entryText = entryTextInput.value.trim();
+        if (!entryText) {
+            showCustomAlert('La descripción de la actividad no puede estar vacía.', 'Campo Obligatorio');
+            return;
         }
-    } else { // Adding new entry
-        method = 'POST';
+
+        // Reset modal state
+        editEntryId.value = ''; // Clear any existing edit ID
+        chooseEntryTypeModalTitle.textContent = 'Elegir Tipo de Actividad';
+        modalEntryType.value = 'tarea'; // Default to task
+        modalEntryType.disabled = false; // Enable type selection
+        modalEntryText.value = entryText; // Prefill with unified input text
+        activityTextDisplay.textContent = `Registrar: "${entryText}"`;
+        modalStartTimeInput.value = '';
+        modalEndTimeInput.value = ''; // Clear end time
+        window.currentModalRequisitos = []; // Clear requirements list (using global reference)
+        renderRequisitosList(window.currentModalRequisitos, document.getElementById('modalRequisitosListDisplay'), true);
+
+        // Show/hide fields based on default type 'tarea'
+        handleEntryTypeChange();
+
+        chooseEntryTypeModal.style.display = 'flex';
+    });
+
+    // --- Modal Entry Type Change Listener ---
+    modalEntryType.addEventListener('change', handleEntryTypeChange);
+
+    function handleEntryTypeChange() {
+        const selectedType = modalEntryType.value;
+
+        // Hide all specific fields first
+        modalRoutineFields.style.display = 'none';
+        modalTaskDateFields.style.display = 'none';
+        modalCitaFields.style.display = 'none';
+        modalEndTimeDiv.style.display = 'none'; // Hide end time by default
+
+        // Reset inputs relevant to hidden fields
+        modalTaskFechaInput.value = '';
+        modalCitaFechaInput.value = '';
+        modalRoutineDayCheckboxes.forEach(cb => cb.checked = false);
+        window.currentModalRequisitos = []; // Clear requirements list (using global reference)
+        renderRequisitosList(window.currentModalRequisitos, document.getElementById('modalRequisitosListDisplay'), true);
+
+        // Show fields based on selected type
+        if (selectedType === 'tarea') {
+            modalTaskDateFields.style.display = 'block';
+            modalEndTimeDiv.style.display = 'block'; // Tasks can also have end times if desired, or keep hidden if not
+            modalTaskFechaInput.value = formatFecha(today); // Default to today
+            console.log('DEBUG (handleEntryTypeChange): modalTaskFechaInput.value set to:', modalTaskFechaInput.value); // NEW LOG
+        } else if (selectedType === 'rutina') {
+            modalRoutineFields.style.display = 'block';
+            modalEndTimeDiv.style.display = 'block'; // Routines always have start/end times
+        } else if (selectedType === 'cita') {
+            modalCitaFields.style.display = 'block';
+            modalEndTimeDiv.style.display = 'block'; // Citas always have start/end times
+            modalCitaFechaInput.value = formatFecha(today); // Default to today
+        }
+    }
+
+    // --- Save Modal Entry Button ---
+    saveModalEntryBtn.addEventListener('click', async () => {
+        const type = modalEntryType.value;
+        const text = modalEntryText.value.trim();
+        const hora = modalStartTimeInput.value;
+        const horaFin = modalEndTimeInput.value; // Get hora_fin
+        const id = editEntryId.value; // Get ID if editing
+
+        if (!text) {
+            showCustomAlert('La descripción es obligatoria.', 'Campo Obligatorio');
+            return;
+        }
+
+        let payload = {}; // Initialize empty payload
+
+        let url = '';
+        let method = 'POST';
+
+        if (id) { // If editing
+            method = 'PUT';
+            payload.id = id; // Add ID to payload for PUT
+        }
+
         if (type === 'tarea') {
-            url = '/api/tareas';
             const fecha = modalTaskFechaInput.value;
-             if (!fecha) {
+            if (!fecha) {
                 showCustomAlert('La fecha de la tarea es obligatoria.', 'Campo Obligatorio');
                 return;
             }
-            payload = { fecha, texto: text, hora: startTime || null };
+            // Corrected payload for 'tarea' to use 'texto' instead of 'nombre'
+            payload = { texto: text, fecha: fecha, hora: hora || null, hora_fin: horaFin || null };
+            url = `/api/tareas${id ? '/' + id : ''}`;
         } else if (type === 'rutina') {
-            url = '/api/rutinas';
-            const diasSeleccionados = Array.from(modalRoutineDayCheckboxes)
-                                        .filter(checkbox => checkbox.checked)
-                                        .map(checkbox => dayNameToNumber[checkbox.value]);
-            if (!startTime || diasSeleccionados.length === 0) {
-                showCustomAlert('Para una rutina, la hora de inicio y al menos un día son obligatorios.', 'Campos Obligatorios');
+            const selectedDays = Array.from(modalRoutineDayCheckboxes)
+                                    .filter(cb => cb.checked)
+                                    .map(cb => dayNameToNumber[cb.value]);
+            if (selectedDays.length === 0) {
+                showCustomAlert('Debe seleccionar al menos un día para la rutina.', 'Campo Obligatorio');
                 return;
             }
-            payload = { nombre: text, hora: startTime, hora_fin: endTime || null, dias: diasSeleccionados };
+            payload = { nombre: text, dias: selectedDays, hora: hora || null, hora_fin: horaFin || null };
+            url = `/api/rutinas${id ? '/' + id : ''}`;
         } else if (type === 'cita') {
-            url = '/api/citas';
-            const citaFecha = modalCitaFechaInput.value;
-            if (!citaFecha) {
+            const fecha = modalCitaFechaInput.value;
+            if (!fecha) {
                 showCustomAlert('La fecha de la cita es obligatoria.', 'Campo Obligatorio');
                 return;
             }
-            payload = { nombre: text, fecha: citaFecha, hora: startTime || null, recordatorio: JSON.stringify(currentModalRequisitos) };
+            payload = { nombre: text, fecha: fecha, hora: hora || null, hora_fin: horaFin || null, recordatorio: JSON.stringify(window.currentModalRequisitos) };
+            url = `/api/citas${id ? '/' + id : ''}`;
         }
-    }
 
-    try {
-        const response = await fetch(url, {
-            method: method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        console.log('DEBUG (add_activity.js): Tipo de actividad:', type); // ADDED LOG
+        console.log('DEBUG (add_activity.js): Payload completo antes de enviar:', JSON.stringify(payload, null, 2)); // ADDED LOG
 
-        if (!response.ok) {
-            let errorMessage = `HTTP error! status: ${response.status}`;
-            const contentType = response.headers.get('content-type');
-            const responseBody = await response.text();
-            if (contentType && contentType.includes('application/json')) {
-                try {
-                    const errorData = JSON.parse(responseBody);
-                    errorMessage = errorData.error || errorMessage;
-                } catch (jsonParseError) {
-                    console.warn("Fallo en el parseo JSON para error de guardado/edición, volviendo a texto sin procesar.", jsonParseError);
-                    errorMessage = `El servidor respondió con un JSON inválido. Código: ${response.status}. Mensaje: ${responseBody.substring(0, 100)}...`;
-                }
-            } else {
-                errorMessage = `El servidor respondió con un error no JSON. Código: ${response.status}. Mensaje: ${responseBody.substring(0, 100)}...`;
-                console.error("Respuesta de error no JSON del servidor:", responseBody);
+        try {
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Error desconocido al guardar la actividad.');
             }
-            throw new Error(errorMessage);
+
+            showCustomAlert('Actividad guardada con éxito.', 'Guardado Exitoso');
+            chooseEntryTypeModal.style.display = 'none';
+            entryTextInput.value = ''; // Clear main input
+            // Ensure these functions are defined and accessible (e.g., in agenda_today.js)
+            if (typeof fetchCombinedAgenda === 'function') {
+                fetchCombinedAgenda(); // Refresh agenda
+            }
+            if (typeof fetchUpcomingCitas === 'function') {
+                fetchUpcomingCitas(); // Refresh upcoming citas
+            }
+            if (typeof fetchCountsForButtons === 'function') {
+                fetchCountsForButtons(); // Update counts
+            }
+        } catch (error) {
+            console.error('Error al guardar la actividad:', error);
+            showCustomAlert(`No se pudo guardar la actividad. Error: ${error.message}`, 'Error de Guardado');
+        }
+    });
+
+    // --- Cancel Modal Entry Button ---
+    cancelModalEntryBtn.addEventListener('click', () => {
+        chooseEntryTypeModal.style.display = 'none';
+    });
+
+    // --- Quick Cita Modal Logic (exposed globally) ---
+    window.showQuickCitaModalLogic = (entryText) => {
+        quickCitaTextDisplay.textContent = `Registrar Cita: "${entryText}"`;
+        quickCitaHiddenName.value = entryText; // Set the hidden input value here
+        quickCitaFechaInput.value = formatFecha(today);
+        quickCitaFechaInput.min = formatFecha(today);
+        quickCitaHoraInput.value = '';
+        quickCitaHoraFinInput.value = ''; // Clear hora_fin
+        window.currentModalRequisitos = []; // Clear requirements for quick cita (using global reference)
+        renderRequisitosList(window.currentModalRequisitos, quickRequisitosListDisplay, true); // Clear display
+
+        quickCitaModal.style.display = 'flex';
+    };
+
+    // --- Quick Cita Add Requisito Button ---
+    quickAddRequisitoBtn.addEventListener('click', () => {
+        const requisitoText = quickCitaRequisitoInput.value.trim();
+        if (requisitoText) {
+            window.currentModalRequisitos.push({ text: requisitoText, checked: false }); // Using global reference
+            renderRequisitosList(window.currentModalRequisitos, quickRequisitosListDisplay); // Using global reference
+            quickCitaRequisitoInput.value = '';
+        }
+    });
+
+    // --- Render Requisitos List Function ---
+    function renderRequisitosList(requisitosArray, displayElement, clearOnly = false) {
+        displayElement.innerHTML = ''; // Clear current list
+        if (clearOnly) return;
+
+        if (requisitosArray.length === 0) {
+            const li = document.createElement('li');
+            li.textContent = 'No hay requisitos.';
+            li.classList.add('text-gray-500', 'italic', 'text-sm');
+            displayElement.appendChild(li);
+            return;
         }
 
-        showCustomAlert(`${type === 'tarea' ? 'Tarea' : type === 'rutina' ? 'Rutina' : 'Cita'} ${id ? 'actualizada' : 'guardada'} con éxito.`, 'Éxito');
-        chooseEntryTypeModal.style.display = 'none';
-        entryTextInput.value = ''; // Clear main input field
-        fetchCombinedAgenda();
-    } catch (error) {
-        console.error(`Error al guardar/actualizar la actividad:`, error);
-        showCustomAlert(`No se pudo ${id ? 'actualizar' : 'guardar'} la actividad. Error: ${error.message}`, 'Error');
+        requisitosArray.forEach((req, index) => {
+            const li = document.createElement('li');
+            li.classList.add('flex', 'items-center', 'justify-between', 'py-1');
+            li.innerHTML = `
+                <label class="flex items-center space-x-2 flex-grow cursor-pointer">
+                    <input type="checkbox" class="form-checkbox h-4 w-4 text-blue-600" ${req.checked ? 'checked' : ''} data-index="${index}">
+                    <span class="${req.checked ? 'line-through text-gray-500' : 'text-gray-800'}">${req.text}</span>
+                </label>
+                <button type="button" class="text-red-500 hover:text-red-700 ml-2" data-action="delete" data-index="${index}">
+                    <i class="fas fa-times-circle"></i>
+                </button>
+            `;
+            displayElement.appendChild(li);
+
+            // Add event listener for checkbox toggle
+            li.querySelector('input[type="checkbox"]').addEventListener('change', (e) => {
+                const itemIndex = parseInt(e.target.dataset.index);
+                requisitosArray[itemIndex].checked = e.target.checked;
+                renderRequisitosList(requisitosArray, displayElement); // Re-render to update styles
+            });
+
+            // Add event listener for delete button
+            li.querySelector('button[data-action="delete"]').addEventListener('click', (e) => {
+                const itemIndex = parseInt(e.target.dataset.index);
+                requisitosArray.splice(itemIndex, 1); // Remove item from array
+                renderRequisitosList(requisitosArray, displayElement); // Re-render the list
+            });
+        });
+    }
+
+    // --- Save Quick Cita Button ---
+    saveQuickCitaBtn.addEventListener('click', async () => {
+        const nombre = quickCitaHiddenName.value.trim(); // READ FROM HIDDEN INPUT
+        const fecha = quickCitaFechaInput.value;
+        const hora = quickCitaHoraInput.value;
+        const horaFin = quickCitaHoraFinInput.value; // Get hora_fin
+        const recordatorio = JSON.stringify(window.currentModalRequisitos); // Using global reference
+
+        if (!nombre || !fecha) {
+            showCustomAlert('El nombre y la fecha de la cita son obligatorios.', 'Campo Obligatorio');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/citas', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre, fecha, hora: hora || null, hora_fin: horaFin || null, recordatorio }) // Include hora_fin
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Error desconocido al guardar la cita rápida.');
+            }
+
+            showCustomAlert('Cita rápida guardada con éxito.', 'Guardado Exitoso');
+            quickCitaModal.style.display = 'none';
+            entryTextInput.value = ''; // Clear main input
+            if (typeof fetchUpcomingCitas === 'function') {
+                fetchUpcomingCitas(); // Refresh upcoming citas
+            }
+            if (typeof fetchCountsForButtons === 'function') {
+                fetchCountsForButtons(); // Update counts
+            }
+        } catch (error) {
+            console.error('Error al guardar la cita rápida:', error);
+            showCustomAlert(`No se pudo guardar la cita rápida. Error: ${error.message}`, 'Error al Guardar');
+        }
+    });
+
+    // --- Cancel Quick Cita Button ---
+    cancelQuickCitaBtn.addEventListener('click', () => {
+        quickCitaModal.style.display = 'none';
+    });
+
+    // --- Modal Cita Add Requisito Button (for main modal) ---
+    document.getElementById('modalAddRequisitoBtn').addEventListener('click', () => {
+        const requisitoText = document.getElementById('modalCitaRequisitoInput').value.trim();
+        if (requisitoText) {
+            window.currentModalRequisitos.push({ text: requisitoText, checked: false }); // Using global reference
+            renderRequisitosList(window.currentModalRequisitos, document.getElementById('modalRequisitosListDisplay')); // Using global reference
+            document.getElementById('modalCitaRequisitoInput').value = '';
+        }
+    });
+
+    // --- Function to edit a Cita (called from agenda_today.js or citas.js) ---
+    window.editCita = async (citaId, nombre, fecha, hora, hora_fin, recordatorio) => {
+        chooseEntryTypeModalTitle.textContent = 'Editar Cita';
+        modalEntryType.value = 'cita';
+        modalEntryType.disabled = true; // Cannot change type when editing
+        editEntryId.value = citaId;
+
+        modalEntryText.value = nombre;
+        activityTextDisplay.textContent = `Editar Cita: "${nombre}"`;
+        modalStartTimeInput.value = hora || '';
+        modalEndTimeInput.value = hora_fin || ''; // Set hora_fin for editing
+
+        modalCitaFechaInput.value = fecha;
+
+        // Set requirements
+        window.currentModalRequisitos = []; // Clear current global requirements
+        if (recordatorio) {
+            try {
+                const parsedRecordatorio = JSON.parse(recordatorio);
+                if (Array.isArray(parsedRecordatorio)) {
+                    window.currentModalRequisitos = parsedRecordatorio; // Set global requirements
+                }
+            } catch (e) {
+                console.error("Error parsing recordatorio JSON:", e);
+            }
+        }
+        renderRequisitosList(window.currentModalRequisitos, document.getElementById('modalRequisitosListDisplay')); // Using global reference
+
+        // Show/hide fields for 'cita' type
+        modalRoutineFields.style.display = 'none';
+        modalTaskDateFields.style.display = 'none';
+        modalCitaFields.style.display = 'block';
+        modalEndTimeDiv.style.display = 'block'; // Ensure end time is visible for citas
+
+        chooseEntryTypeModal.style.display = 'flex';
+    };
+
+    // --- Quick List Button Logic (exposed globally) ---
+    window.handleQuickListAdd = async (itemText) => {
+        const parsedItems = parseShoppingListInputAndMatchIngredients(itemText); // Use the parsing function
+        if (parsedItems.length === 0) {
+            showCustomAlert('No se identificaron ítems válidos para añadir a la lista de compra.', 'Advertencia');
+            return;
+        }
+
+        let successCount = 0;
+        let errorMessages = [];
+
+        for (const itemData of parsedItems) {
+            try {
+                const response = await fetch('/api/lista_compra', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item: itemData.item, ingredient_id: itemData.ingredient_id }) // Send parsed item and ID
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Error al añadir "${itemData.item}".`);
+                }
+                successCount++;
+            } catch (error) {
+                console.error(`Error al añadir "${itemData.item}" a la lista de compra:`, error);
+                errorMessages.push(`"${itemData.item}": ${error.message}`);
+            }
+        }
+
+        if (successCount > 0) {
+            showCustomAlert(`Se añadieron ${successCount} ítem(s) a la lista de compra.`, 'Éxito');
+        }
+        if (errorMessages.length > 0) {
+            showCustomAlert(`Errores al añadir algunos ítems:\n${errorMessages.join('\n')}`, 'Errores al Añadir');
+        }
+
+        if (typeof fetchCountsForButtons === 'function') {
+            fetchCountsForButtons();
+        }
+    };
+
+    // --- Quick Notes Button Logic (exposed globally) ---
+    window.handleQuickNoteAdd = async (noteText) => {
+        try {
+            const response = await fetch('/api/notas', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ texto: noteText })
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Error desconocido al añadir a notas rápidas.');
+            }
+            showCustomAlert('Nota guardada.', 'Éxito');
+            // entryTextInput.value = ''; // Clear input handled by main.js
+            if (typeof fetchCountsForButtons === 'function') {
+                fetchCountsForButtons();
+            }
+        } catch (error) {
+            console.error('Error al añadir a notas rápidas:', error);
+            showCustomAlert(`No se pudo añadir a notas rápidas. Error: ${error.message}`, 'Error');
+        }
+    };
+
+    // --- Generate Shopping List Button Logic ---
+    generateShoppingListButton.addEventListener('click', async () => {
+        const confirmAction = await showCustomConfirm('¿Estás seguro de que quieres generar la lista de la compra basada en el menú semanal? Esto actualizará los ítems existentes y añadirá los nuevos.');
+        if (!confirmAction) {
+            return;
+        }
+
+        showCustomAlert('Generando lista de la compra...', 'Procesando', false); // Show processing alert
+
+        try {
+            const response = await fetch('/api/lista_compra/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Error desconocido al generar la lista de compra.');
+            }
+            const result = await response.json();
+            showCustomAlert(result.details.message || 'Lista de compra generada con éxito.', 'Generación Completa');
+            if (typeof fetchCountsForButtons === 'function') {
+                fetchCountsForButtons(); // Update counts after generation
+            }
+        } catch (error) {
+            console.error('Error al generar la lista de compra:', error);
+            showCustomAlert(`No se pudo generar la lista de compra. Error: ${error.message}`, 'Error');
+        }
+    });
+
+    // Initial fetch for counts when the page loads
+    if (typeof fetchCountsForButtons === 'function') {
+        fetchCountsForButtons();
     }
 });
-
-
-// NEW: Cancel button for the new "Choose Activity Type" modal
-cancelModalEntryBtn.addEventListener('click', () => {
-    chooseEntryTypeModal.style.display = 'none';
-    currentModalRequisitos = []; // Clear requirements on cancel
-    renderRequisitosList(currentModalRequisitos, modalRequisitosListDisplay, true); // Clear display
-    modalEntryType.disabled = false; // Re-enable type selection for next time
-});
-
