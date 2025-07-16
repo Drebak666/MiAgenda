@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tennis for Two vs CPU</title>
+    <style>
+        body {
+            background-color: #000;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Courier New', monospace;
+            color: #0f0;
+            overflow: hidden;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 600px;
+            height: 400px;
+            background-color: #000;
+            border: 2px solid #0f0;
+            overflow: hidden;
+            image-rendering: pixelated;
+        }
+        
+        #court {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #ground {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background-color: #0f0;
+            bottom: 15%;
+            left: 0;
+        }
+        
+        #net {
+            position: absolute;
+            width: 2px;
+            height: 35%;
+            background-color: #0f0;
+            left: 50%;
+            bottom: 15%;
+            transform: translateX(-50%);
+        }
+        
+        #ball {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: #0f0;
+            border-radius: 50%;
+            bottom: 17%;
+            left: 50%;
+        }
+        
+        .player-side {
+            position: absolute;
+            bottom: 15%;
+            width: 40%;
+            height: 2px;
+            background-color: rgba(0, 255, 0, 0.3);
+        }
+        
+        #player-side {
+            left: 5%;
+        }
+        
+        #cpu-side {
+            right: 5%;
+        }
+        
+        #controls {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #0f0;
+        }
+        
+        .control-panel {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+            margin-top: 15px;
+        }
+        
+        .player-controls {
+            text-align: center;
+            border: 1px solid #0f0;
+            padding: 10px;
+            margin: 0 10px;
+        }
+        
+        .knob {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid #0f0;
+            margin: 10px auto;
+            position: relative;
+            cursor: grab; /* Added cursor for better UX */
+        }
+
+        .knob:active {
+            cursor: grabbing;
+        }
+        
+        .knob-marker {
+            position: absolute;
+            width: 20px;
+            height: 2px;
+            background-color: #0f0;
+            top: 50%;
+            left: 50%;
+            transform-origin: left center;
+        }
+        
+        .button {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background-color: #f00;
+            margin: 10px auto;
+            cursor: pointer;
+        }
+        
+        #score {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            font-size: 20px;
+        }
+        
+        #game-info {
+            margin-top: 15px;
+            font-size: 12px;
+            text-align: center;
+            max-width: 600px;
+        }
+    </style>
+</head>
+<body>
+    <h1>TENNIS FOR TWO vs CPU</h1>
+    <div id="game-container">
+        <div id="court">
+            <div id="ground"></div>
+            <div id="net"></div>
+            <div id="player-side" class="player-side"></div>
+            <div id="cpu-side" class="player-side"></div>
+            <div id="ball"></div>
+            <div id="score">PLAYER: 0 | CPU: 0</div>
+        </div>
+    </div>
+    
+    <div id="controls">
+        <div class="control-panel">
+            <div class="player-controls">
+                <div>PLAYER</div>
+                <div class="knob" id="player-knob">
+                    <div class="knob-marker" id="player-marker"></div>
+                </div>
+                <div>ANGLE & POWER</div>
+                <div class="button" id="player-button"></div>
+                <div>HIT</div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="game-info">
+       
+    </div>
+
+    <script>
+        // Game elements
+        const ball = document.getElementById('ball');
+        const net = document.getElementById('net');
+        const ground = document.getElementById('ground');
+        const playerSide = document.getElementById('player-side');
+        const cpuSide = document.getElementById('cpu-side');
+        const scoreElement = document.getElementById('score');
+        const playerKnob = document.getElementById('player-knob');
+        const playerMarker = document.getElementById('player-marker');
+        const playerButton = document.getElementById('player-button');
+        
+        // Game variables
+        let ballX = 300;
+        let ballY = 340;
+        let ballSpeedX = 0;
+        let ballSpeedY = 0;
+        let playerAngle = 45; // Initial angle for player serves/hits
+        let playerScore = 0;
+        let cpuScore = 0;
+        let servingPlayer = 'player';
+        let gameStarted = false;
+        let lastHitBy = null;
+        let gameOver = false;
+        let cpuHitting = false; // To prevent CPU from spamming hits
+
+        // Game constants
+        const COURT_WIDTH = 600;
+        const COURT_HEIGHT = 400;
+        const GROUND_Y = COURT_HEIGHT * 0.85; // Ground position from top
+        const NET_X = COURT_WIDTH / 2;
+        const BALL_SIZE = 8;
+        const GRAVITY = 0.03;
+        const AIR_RESISTANCE = 0.992;
+        const INITIAL_POWER = 6;
+        const NET_HEIGHT_THRESHOLD = 0.55; // Percentage of court height for net clearance
+        const CPU_REACTION_DELAY = 400; // ms
+        const CPU_SKILL = 0.8; // 0-1 (1 = perfect)
+        
+        // Control state
+        let knobDragging = false;
+        
+        // Setup controls
+        playerKnob.addEventListener('mousedown', (e) => {
+            knobDragging = true;
+            playerKnob.style.cursor = 'grabbing';
+            e.preventDefault(); 
+        });
+
+        document.addEventListener('mouseup', () => {
+            knobDragging = false;
+            playerKnob.style.cursor = 'grab';
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (knobDragging) {
+                const rect = playerKnob.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                
+                let angle = Math.atan2(e.clientY - centerY, e.clientX - centerX) * 180 / Math.PI;
+
+                // Restrict the angle for sensible hits.
+                // For a player on the left, you'd typically hit upwards and right.
+                // In a Cartesian coordinate system (0,0 bottom-left), this means positive X, positive Y.
+                // In screen coordinates (0,0 top-left), positive X, negative Y.
+                // Our current ballY increases downwards, so a higher number is lower on screen.
+                // Angles need to be adjusted for how Math.atan2 works and our coordinate system.
+                // Math.atan2(y,x): 0=right, 90=up, 180=left, -90=down.
+                // We want to hit up-right. So, angles in the range of -10 to -80 degrees (approx).
+                
+                // Let's cap the player's angle to a reasonable range for hitting over the net.
+                // Angles between -90 (straight up) and 0 (straight right).
+                if (angle > 0) angle = 0;
+                if (angle < -90) angle = -90;
+                
+                playerAngle = angle;
+                updateKnobMarker(playerMarker, playerAngle);
+            }
+        });
+        
+        playerButton.addEventListener('mousedown', () => {
+            if (gameOver) return;
+
+            // Determine if it's the player's turn to hit/serve
+            const ballOnPlayersSide = ballX < NET_X;
+
+            if (!gameStarted) { // If the game hasn't started yet, it's a serve
+                if (servingPlayer === 'player') {
+                    serveBall('player');
+                }
+            } else if (ballOnPlayersSide && lastHitBy !== 'player') { // If game started, it's a regular hit
+                // Only allow player to hit if the ball is on their side AND CPU hit it last (or it's a serve return)
+                hitBall('player');
+            }
+        });
+        
+        // Function to update the knob marker
+        function updateKnobMarker(marker, angle) {
+            marker.style.transform = `rotate(${angle}deg)`;
+        }
+        
+        // Function to serve the ball
+        function serveBall(player) {
+            if (gameOver) return;
+            
+            gameStarted = true;
+            lastHitBy = player;
+            cpuHitting = false; // Reset CPU hit flag
+
+            ballY = GROUND_Y - BALL_SIZE * 2; 
+            
+            if (player === 'player') {
+                ballX = COURT_WIDTH * 0.2; // Serve from player's side
+                // Use the player's current angle for the serve
+                ballSpeedX = Math.cos(playerAngle * Math.PI / 180) * INITIAL_POWER;
+                ballSpeedY = Math.sin(playerAngle * Math.PI / 180) * INITIAL_POWER;
+            } else {
+                // CPU serves with a controlled angle towards player side
+                const cpuServeAngle = -150 + Math.random() * 30; // Between -150 and -120 degrees (upward-left for CPU)
+                ballX = COURT_WIDTH * 0.8; // Serve from CPU side
+                ballSpeedX = Math.cos(cpuServeAngle * Math.PI / 180) * INITIAL_POWER * 0.9;
+                ballSpeedY = Math.sin(cpuServeAngle * Math.PI / 180) * INITIAL_POWER * 0.9;
+            }
+        }
+        
+        // Function to hit the ball
+        function hitBall(player) {
+            const powerVariation = (0.9 + Math.random() * 0.2); 
+            const effectivePower = INITIAL_POWER * powerVariation;
+
+            if (player === 'player') {
+                // The hit function for player is now only called when conditions are met
+                ballSpeedX = Math.cos(playerAngle * Math.PI / 180) * effectivePower;
+                ballSpeedY = Math.sin(playerAngle * Math.PI / 180) * effectivePower;
+                lastHitBy = 'player';
+                cpuHitting = false; 
+            } else { // CPU hits
+                // CPU determines target and hits
+                const targetX = COURT_WIDTH * 0.2 + Math.random() * (COURT_WIDTH * 0.3); // Aim for player's court
+                
+                const dx = targetX - ballX;
+                const dy = (GROUND_Y - ballY - 20) * (0.8 + Math.random() * 0.4); // Aim slightly above ground, with variation
+                
+                // Estimate a suitable angle and power to reach target
+                // This is a simplified approach, a true ballistic trajectory calculation is more complex.
+                // We'll aim for an angle that generally sends it up and over the net.
+                let cpuHitAngle = Math.atan2(dy, dx); 
+                let cpuPower = Math.sqrt(dx*dx + dy*dy) / 10; // Simple power estimation
+
+                // Cap power to reasonable levels
+                if (cpuPower > INITIAL_POWER * 1.5) cpuPower = INITIAL_POWER * 1.5;
+                if (cpuPower < INITIAL_POWER * 0.5) cpuPower = INITIAL_POWER * 0.5;
+
+                // Adjust angle slightly for CPU skill and randomness
+                cpuHitAngle += (Math.random() - 0.5) * (1 - CPU_SKILL) * 0.5; // Add error based on skill
+
+                ballSpeedX = Math.cos(cpuHitAngle) * cpuPower;
+                ballSpeedY = Math.sin(cpuHitAngle) * cpuPower;
+
+                lastHitBy = 'cpu';
+            }
+        }
+        
+        // Function for CPU logic (deciding when to hit)
+        function cpuLogic() {
+            if (gameOver || !gameStarted || lastHitBy === 'cpu' || ballX < NET_X) {
+                cpuHitting = false;
+                return;
+            }
+
+            // Check if ball is on CPU side and within a reasonable hitting height
+            if (ballX >= NET_X && ballY > (COURT_HEIGHT * 0.5) && ballY < GROUND_Y - BALL_SIZE * 2) {
+                if (!cpuHitting) {
+                    cpuHitting = true; // CPU commits to hitting
+                    setTimeout(() => {
+                        // Re-check conditions before hitting, in case ball moved out of position
+                        if (ballX >= NET_X && lastHitBy !== 'cpu' && ballY > (COURT_HEIGHT * 0.5) && ballY < GROUND_Y - BALL_SIZE * 2) {
+                            hitBall('cpu');
+                            cpuHitting = false;
+                        } else {
+                            cpuHitting = false; // Reset if conditions no longer met
+                        }
+                    }, CPU_REACTION_DELAY);
+                }
+            }
+        }
+        
+        // Function to predict where the ball will land (approximate) - unused in current CPU logic for simplicity, but good for future planning
+        function predictBallLanding() {
+            let tempX = ballX;
+            let tempY = ballY;
+            let tempVx = ballSpeedX;
+            let tempVy = ballSpeedY;
+            
+            for (let i = 0; i < 200; i++) { 
+                tempX += tempVx;
+                tempY += tempVy;
+                tempVy += GRAVITY;
+                tempVx *= AIR_RESISTANCE;
+                tempVy *= AIR_RESISTANCE;
+                
+                if (tempY >= GROUND_Y - BALL_SIZE) {
+                    return tempX; 
+                }
+            }
+            return ballX; 
+        }
+        
+        // Function to reset after a point
+        function resetAfterPoint(scoringPlayer) {
+            gameStarted = false;
+            ballSpeedX = 0;
+            ballSpeedY = 0;
+            cpuHitting = false;
+            
+            if (scoringPlayer === 'player') {
+                playerScore++;
+                servingPlayer = 'player';
+                ballX = COURT_WIDTH * 0.2; 
+            } else {
+                cpuScore++;
+                servingPlayer = 'cpu';
+                ballX = COURT_WIDTH * 0.8; 
+            }
+            
+            ballY = GROUND_Y - BALL_SIZE * 2; 
+            scoreElement.textContent = `PLAYER: ${playerScore} | CPU: ${cpuScore}`;
+            
+            if (playerScore >= 5 || cpuScore >= 5) {
+                gameOver = true;
+                const winner = playerScore >= 5 ? 'PLAYER' : 'CPU';
+                scoreElement.textContent = `${winner} WINS! ${playerScore}-${cpuScore}`;
+                
+                setTimeout(() => {
+                    playerScore = 0;
+                    cpuScore = 0;
+                    gameOver = false;
+                    servingPlayer = 'player'; 
+                    scoreElement.textContent = `PLAYER: 0 | CPU: 0`;
+                    ballX = COURT_WIDTH * 0.2;
+                    ballY = GROUND_Y - BALL_SIZE * 2;
+                }, 3000);
+            } else {
+                if (servingPlayer === 'cpu') {
+                    setTimeout(() => serveBall('cpu'), 1000); 
+                }
+            }
+        }
+        
+        // Function to update ball physics
+        function updateBallPhysics() {
+            if (!gameStarted || gameOver) return;
+            
+            ballSpeedY += GRAVITY;
+            
+            ballSpeedX *= AIR_RESISTANCE;
+            ballSpeedY *= AIR_RESISTANCE;
+            
+            ballX += ballSpeedX;
+            ballY += ballSpeedY;
+            
+            // Collision with ground
+            if (ballY >= GROUND_Y - BALL_SIZE) {
+                ballY = GROUND_Y - BALL_SIZE;
+                ballSpeedY = -ballSpeedY * 0.65;
+                
+                // Determine scoring based on landing side and who last hit
+                const ballLandedOnPlayerSide = ballX < NET_X;
+                const ballLandedOnCPUSide = ballX >= NET_X;
+
+                if (ballLandedOnPlayerSide) {
+                    // If CPU hit it and it landed on player's court within bounds, point for player
+                    if (lastHitBy === 'cpu' && ballX > (COURT_WIDTH * 0.05) && ballX < (COURT_WIDTH * 0.45)) {
+                        resetAfterPoint('player');
+                    } else { // Out of bounds or player hit their own side
+                        resetAfterPoint('cpu');
+                    }
+                } else if (ballLandedOnCPUSide) {
+                    // If player hit it and it landed on CPU's court within bounds, point for CPU
+                    if (lastHitBy === 'player' && ballX > (COURT_WIDTH * 0.55) && ballX < (COURT_WIDTH * 0.95)) {
+                        resetAfterPoint('cpu'); // This seems reversed, if player hits successfully, player gets point
+                    } else { // Out of bounds or CPU hit their own side
+                        resetAfterPoint('player');
+                    }
+                }
+            }
+            
+            // Collision with net
+            const netTopY = COURT_HEIGHT * (1 - NET_HEIGHT_THRESHOLD);
+            const netBottomY = GROUND_Y - net.offsetHeight; // Approximate bottom of the net visually
+            
+            if (ballX >= NET_X - BALL_SIZE / 2 && ballX <= NET_X + BALL_SIZE / 2) { // Ball is horizontally at the net
+                if (ballY >= netBottomY && ballY <= netTopY) { // Ball is vertically within net height
+                    // Ball hits the net
+                    ballSpeedX = -ballSpeedX * 0.7; // Reverse X speed and reduce energy
+                    ballSpeedY = -ballSpeedY * 0.3; // Dampen Y speed
+                    ballY -= 5; // Move ball slightly away from net to prevent sticking
+
+                    // If it barely hits and loses all momentum, it's a point for the other player
+                    if (Math.abs(ballSpeedX) < 0.5 && Math.abs(ballSpeedY) < 0.5) {
+                        const scoringPlayer = ballX < NET_X ? 'cpu' : 'player'; // If ball on left of net, CPU scores (player failed)
+                        resetAfterPoint(scoringPlayer);
+                    }
+                }
+            }
+
+            // Out of bounds horizontally (beyond court width, not landing)
+            if (ballX < -BALL_SIZE * 2 || ballX > COURT_WIDTH + BALL_SIZE * 2) { // Give a little more leeway for bounce
+                const scoringPlayer = ballX < NET_X ? 'cpu' : 'player'; 
+                resetAfterPoint(scoringPlayer);
+            }
+            
+            // Update ball's visual position
+            ball.style.left = `${ballX - BALL_SIZE/2}px`;
+            ball.style.bottom = `${COURT_HEIGHT - ballY}px`;
+            
+            // Run CPU logic
+            cpuLogic();
+        }
+        
+        // Initialize knob marker
+        updateKnobMarker(playerMarker, playerAngle);
+        
+        // Initial ball position for display
+        ball.style.left = `${ballX - BALL_SIZE/2}px`;
+        ball.style.bottom = `${COURT_HEIGHT - ballY}px`;
+        
+        // Main game loop
+        function gameLoop() {
+            updateBallPhysics();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Start the game loop
+        gameLoop();
+    </script>
+</body>
+</html>

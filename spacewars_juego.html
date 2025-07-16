@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spacewar! (1962) vs CPU</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      color: lime;
+      font-family: monospace;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      background: black;
+    }
+    .controls {
+      position: fixed;
+      bottom: 10px;
+      width: 100%;
+      text-align: center;
+    }
+    button {
+      background: black;
+      color: lime;
+      border: 2px solid lime;
+      padding: 10px;
+      margin: 5px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: lime;
+      color: black;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="800" height="600"></canvas>
+  <div class="controls">
+    <button onclick="rotateLeft()">Girar &#x21ba;</button>
+    <button onclick="rotateRight()">Girar &#x21bb;</button>
+    <button onclick="thrust()">Impulso</button>
+    <button onclick="fire()">Disparo</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+
+    class Ship {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.angle = 0;
+        this.vx = 0;
+        this.vy = 0;
+        this.color = color;
+        this.radius = 10;
+        this.cooldown = 0;
+        this.bullets = [];
+      }
+
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        ctx.strokeStyle = this.color;
+        ctx.beginPath();
+        ctx.moveTo(10, 0);
+        ctx.lineTo(-10, -7);
+        ctx.lineTo(-10, 7);
+        ctx.closePath();
+        ctx.stroke();
+        ctx.restore();
+
+        // draw bullets
+        for (let b of this.bullets) {
+          ctx.fillStyle = this.color;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        if (this.x < 0) this.x = canvas.width;
+        if (this.x > canvas.width) this.x = 0;
+        if (this.y < 0) this.y = canvas.height;
+        if (this.y > canvas.height) this.y = 0;
+
+        this.bullets = this.bullets.filter(b => b.life > 0);
+        for (let b of this.bullets) {
+          b.x += b.vx;
+          b.y += b.vy;
+          b.life--;
+        }
+
+        if (this.cooldown > 0) this.cooldown--;
+      }
+
+      shoot() {
+        if (this.cooldown > 0) return;
+        const speed = 5;
+        const bullet = {
+          x: this.x + Math.cos(this.angle) * 12,
+          y: this.y + Math.sin(this.angle) * 12,
+          vx: Math.cos(this.angle) * speed + this.vx,
+          vy: Math.sin(this.angle) * speed + this.vy,
+          life: 60
+        };
+        this.bullets.push(bullet);
+        this.cooldown = 20;
+      }
+
+      checkCollision(target) {
+        for (let b of this.bullets) {
+          const dx = b.x - target.x;
+          const dy = b.y - target.y;
+          if (Math.sqrt(dx * dx + dy * dy) < target.radius) {
+            b.life = 0;
+            return true;
+          }
+        }
+        return false;
+      }
+    }
+
+    const player = new Ship(200, 300, 'lime');
+    const cpu = new Ship(600, 300, 'red');
+
+    function rotateLeft() {
+      player.angle -= 0.1;
+    }
+    function rotateRight() {
+      player.angle += 0.1;
+    }
+    function thrust() {
+      player.vx += Math.cos(player.angle) * 0.1;
+      player.vy += Math.sin(player.angle) * 0.1;
+    }
+    function fire() {
+      player.shoot();
+    }
+
+    function updateCPU() {
+      const dx = player.x - cpu.x;
+      const dy = player.y - cpu.y;
+      const angleToPlayer = Math.atan2(dy, dx);
+
+      cpu.angle += (angleToPlayer - cpu.angle) * 0.1;
+
+      if (Math.random() < 0.05) {
+        cpu.shoot();
+      }
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      player.update();
+      cpu.update();
+      updateCPU();
+
+      player.draw();
+      cpu.draw();
+
+      if (player.checkCollision(cpu)) {
+        alert('¡Has ganado!');
+        window.location.reload();
+      }
+      if (cpu.checkCollision(player)) {
+        alert('¡Has sido destruido!');
+        window.location.reload();
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+  </script>
+</body>
+</html>
