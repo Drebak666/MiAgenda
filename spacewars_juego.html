@@ -16,21 +16,33 @@
       display: block;
       margin: auto;
       background: black;
+      border: 2px solid lime;
+      max-width: 100%;
+      height: auto;
     }
     .controls {
       position: fixed;
-      bottom: 10px;
+      bottom: 0;
+      left: 0;
       width: 100%;
-      text-align: center;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 10px;
+      box-shadow: 0 -2px 10px #0f0;
+      z-index: 10;
     }
     button {
       background: black;
       color: lime;
       border: 2px solid lime;
-      padding: 10px;
+      padding: 10px 15px;
       margin: 5px;
-      border-radius: 5px;
+      border-radius: 10px;
+      font-size: 16px;
       cursor: pointer;
+      transition: 0.2s;
     }
     button:hover {
       background: lime;
@@ -41,10 +53,10 @@
 <body>
   <canvas id="game" width="800" height="600"></canvas>
   <div class="controls">
-    <button onclick="rotateLeft()">Girar &#x21ba;</button>
-    <button onclick="rotateRight()">Girar &#x21bb;</button>
-    <button onclick="thrust()">Impulso</button>
-    <button onclick="fire()">Disparo</button>
+    <button onclick="rotateLeft()">⟲ Giro Izq.</button>
+    <button onclick="rotateRight()">Giro Der. ⟳</button>
+    <button onclick="thrust()">🚀 Impulso</button>
+    <button onclick="fire()">🔫 Disparo</button>
   </div>
 
   <script>
@@ -77,7 +89,6 @@
         ctx.stroke();
         ctx.restore();
 
-        // draw bullets
         for (let b of this.bullets) {
           ctx.fillStyle = this.color;
           ctx.beginPath();
@@ -153,9 +164,7 @@
       const dx = player.x - cpu.x;
       const dy = player.y - cpu.y;
       const angleToPlayer = Math.atan2(dy, dx);
-
       cpu.angle += (angleToPlayer - cpu.angle) * 0.1;
-
       if (Math.random() < 0.05) {
         cpu.shoot();
       }
@@ -163,21 +172,19 @@
 
     function gameLoop() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
       player.update();
       cpu.update();
       updateCPU();
-
       player.draw();
       cpu.draw();
 
       if (player.checkCollision(cpu)) {
         alert('¡Has ganado!');
-        window.location.reload();
+        location.reload();
       }
       if (cpu.checkCollision(player)) {
         alert('¡Has sido destruido!');
-        window.location.reload();
+        location.reload();
       }
 
       requestAnimationFrame(gameLoop);
