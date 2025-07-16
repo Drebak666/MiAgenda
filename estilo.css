@@ -1,0 +1,36 @@
+body {
+  background-color: black;
+  color: #00ff66;
+  font-family: monospace;
+  text-align: center;
+  padding: 20px;
+}
+
+.tablero {
+  display: grid;
+  grid-template-columns: repeat(3, 80px);
+  gap: 10px;
+  justify-content: center;
+  margin: 30px auto;
+}
+
+.celda {
+  width: 80px;
+  height: 80px;
+  border: 2px solid #00ff66;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  cursor: pointer;
+}
+
+.botones button {
+  background-color: black;
+  border: 1px solid #00ff66;
+  color: #00ff66;
+  padding: 10px 20px;
+  margin: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
