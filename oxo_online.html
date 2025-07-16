@@ -44,23 +44,26 @@
         seleccion = null;
       };
 
-      window.aplicarJugadaMasVotada = async function () {
-        const { data } = await supabase.from('votos_oxo').select('celda');
-        if (!data || data.length === 0) return;
-        const votos = data.map(d => d.celda);
-        const frecuencia = votos.reduce((acc, celda) => {
-          acc[celda] = (acc[celda] || 0) + 1;
-          return acc;
-        }, {});
-        const masVotada = Object.keys(frecuencia).reduce((a, b) => frecuencia[a] > frecuencia[b] ? a : b);
-        console.log("Celda más votada:", masVotada);
-        await supabase.from('votos_oxo').delete().neq('id', 0);
-      };
+     window.registrarVoto = async function () {
+  if (seleccion === null) return;
+  await supabase.from('oxo_votos').insert([{ casilla: seleccion }]);
+  seleccion = null;
+}
 
-      window.reiniciarPartida = async function () {
-        await supabase.from('votos_oxo').delete().neq('id', 0);
-        dibujarTablero(Array(9).fill(''));
-      };
+window.aplicarJugadaMasVotada = async function () {
+  const { data } = await supabase.from('oxo_votos').select('casilla');
+  const votos = data.map(d => d.casilla);
+  const masVotada = votos.sort((a,b) =>
+    votos.filter(v => v === a).length - votos.filter(v => v === b).length
+  ).pop();
+  console.log("Casilla más votada:", masVotada);
+  await supabase.from('oxo_votos').delete().neq('id', 0); // Limpia votos
+}
+
+window.reiniciarPartida = async function () {
+  await supabase.from('oxo_votos').delete().neq('id', 0);
+}
+
 
       dibujarTablero(Array(9).fill(''));
     });
