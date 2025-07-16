@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>OXO Colaborativo</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      background-color: black;
+      color: #00ff66;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      margin-bottom: 1rem;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 8px;
+    }
+
+    .cell {
+      background-color: black;
+      border: 2px solid #00ff66;
+      color: #00ff66;
+      font-size: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .votes {
+      position: absolute;
+      bottom: 4px;
+      right: 6px;
+      font-size: 0.8rem;
+      color: #00ffaa;
+    }
+
+    .controls {
+      margin-top: 1rem;
+    }
+
+    button {
+      background-color: #002f1e;
+      color: #00ff66;
+      border: 1px solid #00ff66;
+      border-radius: 6px;
+      padding: 0.5rem 1.2rem;
+      cursor: pointer;
+      margin: 0.5rem;
+    }
+
+    button:hover {
+      background-color: #00442a;
+    }
+  </style>
+</head>
+<body>
+  <h1>OXO - Juego colaborativo</h1>
+  <div class="board" id="board"></div>
+
+  <div class="controls">
+    <button onclick="registrarVoto()">Votar por selección</button>
+    <button onclick="aplicarJugadaMasVotada()">Aplicar jugada más votada</button>
+    <button onclick="reiniciarPartida()">Reiniciar partida</button>
+  </div>
+
+  <p id="mensaje"></p>
+
+  <script>
+    const supabase = supabase.createClient(
+      'https://ugpqqmcstqtywyrzfnjq.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVncHFxbWNzdHF0eXd5cnpmbmpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk3Mzk2ODgsImV4cCI6MjA2NTMxNTY4OH0.nh56rQQliOnX5AZzePaZv_RB05uRIlUbfQPkWJPvKcE'
+    );
+
+    let partidaId = null;
+    let jugadorId = 'jugador_' + Math.floor(Math.random() * 10000);
+    let tablero = Array(9).fill('');
+    let seleccion = null;
+
+    async function obtenerPartida() {
+      const { data, error } = await supabase
+        .from('oxo_tablero')
+        .select('*')
+        .order('ultima_actualizacion', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (data) {
+        partidaId = data.id;
+        tablero = data.casillas;
+        renderTablero();
+      } else {
+        await crearPartida();
+      }
+    }
+
+    async function crearPartida() {
+      const { data, error } = await supabase
+        .from('oxo_tablero')
+        .insert({ casillas: Array(9).fill('') })
+        .select()
+        .single();
+
+      partidaId = data.id;
+      tablero = data.casillas;
+      renderTablero();
+    }
+
+    async function registrarVoto() {
+      if (seleccion === null || tablero[seleccion] !== '') return;
+      await supabase.from('oxo_votos').insert({
+        partida_id: partidaId,
+        casilla: seleccion,
+        jugador_id: jugadorId
+      });
+      document.getElementById("mensaje").textContent = "Voto registrado.";
+    }
+
+    async function aplicarJugadaMasVotada() {
+      const { data: votos } = await supabase
+        .from('oxo_votos')
+        .select('*')
+        .eq('partida_id', partidaId);
+
+      const conteo = Array(9).fill(0);
+      votos.forEach(v => conteo[v.casilla]++);
+
+      let maxVotos = Math.max(...conteo);
+      let candidatos = conteo
+        .map((c, i) => (c === maxVotos && tablero[i] === '' ? i : null))
+        .filter(v => v !== null);
+
+      if (candidatos.length === 0) return;
+
+      const seleccionada = candidatos[Math.floor(Math.random() * candidatos.length)];
+      tablero[seleccionada] = 'X';
+
+      await supabase
+        .from('oxo_tablero')
+        .update({ casillas: tablero, ultima_actualizacion: new Date() })
+        .eq('id', partidaId);
+
+      await supabase.from('oxo_votos').delete().eq('partida_id', partidaId);
+      renderTablero();
+      document.getElementById("mensaje").textContent = "¡Turno aplicado!";
+    }
+
+    async function reiniciarPartida() {
+      tablero = Array(9).fill('');
+      await supabase
+        .from('oxo_tablero')
+        .update({ casillas: tablero, ultima_actualizacion: new Date() })
+        .eq('id', partidaId);
+      await supabase.from('oxo_votos').delete().eq('partida_id', partidaId);
+      renderTablero();
+    }
+
+    async function renderTablero() {
+      const boardEl = document.getElementById('board');
+      boardEl.innerHTML = '';
+      const votos = await supabase
+        .from('oxo_votos')
+        .select('casilla', { count: 'exact' })
+        .eq('partida_id', partidaId);
+
+      const conteo = Array(9).fill(0);
+      votos.data.forEach(v => conteo[v.casilla]++);
+
+      tablero.forEach((valor, i) => {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.textContent = valor || '';
+        cell.onclick = () => seleccion = i;
+
+        const votosSpan = document.createElement('div');
+        votosSpan.className = 'votes';
+        votosSpan.textContent = conteo[i] > 0 ? conteo[i] + ' votos' : '';
+        cell.appendChild(votosSpan);
+
+        boardEl.appendChild(cell);
+      });
+    }
+
+    obtenerPartida();
+    setInterval(renderTablero, 2000); // actualiza cada 2 segundos
+  </script>
+</body>
+</html>

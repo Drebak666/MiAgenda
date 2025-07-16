@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>OXO - Reto</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      background-color: black;
+      color: #00ff66;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    h1 {
+      color: #00ff66;
+      margin-bottom: 1rem;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 8px;
+    }
+
+    .cell {
+      background-color: black;
+      border: 2px solid #00ff66;
+      color: #00ff66;
+      font-size: 2.5rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .cell:hover {
+      background-color: #003322;
+    }
+
+    .message {
+      margin-top: 1.5rem;
+      font-size: 1.1rem;
+    }
+
+    button {
+      margin-top: 1rem;
+      padding: 0.6rem 1.2rem;
+      background-color: #002f1e;
+      color: #00ff66;
+      border: 1px solid #00ff66;
+      border-radius: 5px;
+      font-family: monospace;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #00442a;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>OXO - Reto contra la máquina</h1>
+  <div class="board" id="board"></div>
+  <div class="message" id="message">Tu turno: X</div>
+  <button onclick="startGame()">Reiniciar</button>
+
+  <script>
+    const boardEl = document.getElementById('board');
+    const messageEl = document.getElementById('message');
+    let board = Array(9).fill('');
+    let player = 'X';
+    let cpu = 'O';
+    let gameOver = false;
+
+    const wins = [
+      [0,1,2], [3,4,5], [6,7,8],
+      [0,3,6], [1,4,7], [2,5,8],
+      [0,4,8], [2,4,6]
+    ];
+
+    function startGame() {
+      board = Array(9).fill('');
+      gameOver = false;
+      boardEl.innerHTML = '';
+      messageEl.textContent = 'Tu turno: X';
+
+      for (let i = 0; i < 9; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.addEventListener('click', () => handleMove(i));
+        boardEl.appendChild(cell);
+      }
+    }
+
+    function handleMove(i) {
+      if (board[i] || gameOver) return;
+      board[i] = player;
+      updateUI();
+
+      if (checkWinner(board, player)) {
+        messageEl.textContent = '¡Has ganado!';
+        gameOver = true;
+        return;
+      }
+
+      if (isDraw(board)) {
+        messageEl.textContent = 'Empate.';
+        gameOver = true;
+        return;
+      }
+
+      messageEl.textContent = 'Turno CPU...';
+      setTimeout(cpuTurn, 400);
+    }
+
+    function cpuTurn() {
+      const move = findBestMove();
+      board[move] = cpu;
+      updateUI();
+
+      if (checkWinner(board, cpu)) {
+        messageEl.textContent = 'La CPU ha ganado.';
+        gameOver = true;
+        return;
+      }
+
+      if (isDraw(board)) {
+        messageEl.textContent = 'Empate.';
+        gameOver = true;
+        return;
+      }
+
+      messageEl.textContent = 'Tu turno: X';
+    }
+
+    function findBestMove() {
+      // 1. CPU gana
+      for (let i = 0; i < 9; i++) {
+        if (board[i] === '') {
+          board[i] = cpu;
+          if (checkWinner(board, cpu)) {
+            board[i] = '';
+            return i;
+          }
+          board[i] = '';
+        }
+      }
+
+      // 2. Bloquear jugador
+      for (let i = 0; i < 9; i++) {
+        if (board[i] === '') {
+          board[i] = player;
+          if (checkWinner(board, player)) {
+            board[i] = '';
+            return i;
+          }
+          board[i] = '';
+        }
+      }
+
+      // 3. Centro si está libre
+      if (board[4] === '') return 4;
+
+      // 4. Esquinas aleatorias
+      const corners = [0, 2, 6, 8].filter(i => board[i] === '');
+      if (corners.length > 0) {
+        return corners[Math.floor(Math.random() * corners.length)];
+      }
+
+      // 5. Cualquier otra
+      const empty = board.map((val, i) => val === '' ? i : null).filter(i => i !== null);
+      return empty[Math.floor(Math.random() * empty.length)];
+    }
+
+    function checkWinner(b, p) {
+      return wins.some(combo => combo.every(i => b[i] === p));
+    }
+
+    function isDraw(b) {
+      return b.every(cell => cell !== '');
+    }
+
+    function updateUI() {
+      const cells = boardEl.querySelectorAll('.cell');
+      cells.forEach((cell, i) => {
+        cell.textContent = board[i];
+      });
+    }
+
+    startGame();
+  </script>
+
+</body>
+</html>
