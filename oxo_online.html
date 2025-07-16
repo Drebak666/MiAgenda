@@ -5,15 +5,54 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>OXO - Juego colaborativo</title>
   <link rel="stylesheet" href="estilo.css">
+  <style>
+    body {
+      background-color: black;
+      color: lime;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .tablero {
+      display: grid;
+      grid-template-columns: repeat(3, 60px);
+      gap: 10px;
+      margin-top: 30px;
+    }
+    .celda {
+      width: 60px;
+      height: 60px;
+      border: 2px solid lime;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 30px;
+      cursor: pointer;
+    }
+    .botones {
+      margin-top: 40px;
+      display: flex;
+      gap: 20px;
+    }
+    button {
+      background: black;
+      color: lime;
+      border: 1px solid lime;
+      padding: 10px;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+  </style>
 </head>
 <body>
   <h1>OXO - Juego colaborativo</h1>
   <div id="tablero" class="tablero"></div>
 
   <div class="botones">
-    <button onclick="registrarVoto()">Votar por selección</button>
-    <button onclick="aplicarJugadaMasVotada()">Aplicar jugada más votada</button>
-    <button onclick="reiniciarPartida()">Reiniciar partida</button>
+    <button id="btnVotar">Votar por selección</button>
+    <button id="btnAplicar">Aplicar jugada más votada</button>
+    <button id="btnReiniciar">Reiniciar partida</button>
   </div>
 
   <script type="module">
@@ -37,25 +76,30 @@
       });
     }
 
-    window.registrarVoto = async function () {
+    async function registrarVoto() {
       if (seleccion === null) return;
       await supabase.from('votos_oxo').insert([{ celda: seleccion }]);
       seleccion = null;
     }
 
-    window.aplicarJugadaMasVotada = async function () {
+    async function aplicarJugadaMasVotada() {
       const { data } = await supabase.from('votos_oxo').select('celda');
       const votos = data.map(d => d.celda);
       const masVotada = votos.sort((a,b) =>
         votos.filter(v => v === a).length - votos.filter(v => v === b).length
       ).pop();
       console.log("Celda más votada:", masVotada);
-      await supabase.from('votos_oxo').delete().neq('id', 0); // Limpia votos
-    }
-
-    window.reiniciarPartida = async function () {
       await supabase.from('votos_oxo').delete().neq('id', 0);
     }
+
+    async function reiniciarPartida() {
+      await supabase.from('votos_oxo').delete().neq('id', 0);
+    }
+
+    // Conectar botones
+    document.getElementById("btnVotar").addEventListener("click", registrarVoto);
+    document.getElementById("btnAplicar").addEventListener("click", aplicarJugadaMasVotada);
+    document.getElementById("btnReiniciar").addEventListener("click", reiniciarPartida);
 
     dibujarTablero(Array(9).fill(''));
   </script>
