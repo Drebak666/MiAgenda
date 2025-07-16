@@ -17,56 +17,53 @@
   </div>
 
   <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const supabaseUrl = 'https://ugpqqmcstqtywyrzfnjq.supabase.co';
-      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVncHFxbWNzdHF0eXd5cnpmbmpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk3Mzk2ODgsImV4cCI6MjA2NTMxNTY4OH0.nh56rQQliOnX5AZzePaZv_RB05uRIlUbfQPkWJPvKcE';
-      const supabase = createClient(supabaseUrl, supabaseKey);
+document.addEventListener("DOMContentLoaded", () => {
+  const supabaseUrl = 'https://ugpqqmcstqtywyrzfnjq.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVncHFxbWNzdHF0eXd5cnpmbmpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk3Mzk2ODgsImV4cCI6MjA2NTMxNTY4OH0.nh56rQQliOnX5AZzePaZv_RB05uRIlUbfQPkWJPvKcE';
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
-      let seleccion = null;
-      const tablero = document.getElementById('tablero');
+  let seleccion = null;
+  const tablero = document.getElementById('tablero');
 
-      function dibujarTablero(estado) {
-        tablero.innerHTML = '';
-        estado.forEach((celda, i) => {
-          const div = document.createElement('div');
-          div.textContent = celda;
-          div.className = 'celda';
-          div.onclick = () => seleccion = i;
-          tablero.appendChild(div);
-        });
-      }
-
-      window.registrarVoto = async function () {
-        if (seleccion === null) return;
-        await supabase.from('votos_oxo').insert([{ celda: seleccion }]);
-        seleccion = null;
-      };
-
-     window.registrarVoto = async function () {
-  if (seleccion === null) return;
-  await supabase.from('oxo_votos').insert([{ casilla: seleccion }]);
-  seleccion = null;
-}
-
-window.aplicarJugadaMasVotada = async function () {
-  const { data } = await supabase.from('oxo_votos').select('casilla');
-  const votos = data.map(d => d.casilla);
-  const masVotada = votos.sort((a,b) =>
-    votos.filter(v => v === a).length - votos.filter(v => v === b).length
-  ).pop();
-  console.log("Casilla más votada:", masVotada);
-  await supabase.from('oxo_votos').delete().neq('id', 0); // Limpia votos
-}
-
-window.reiniciarPartida = async function () {
-  await supabase.from('oxo_votos').delete().neq('id', 0);
-}
-
-
-      dibujarTablero(Array(9).fill(''));
+  function dibujarTablero(estado) {
+    tablero.innerHTML = '';
+    estado.forEach((celda, i) => {
+      const div = document.createElement('div');
+      div.textContent = celda;
+      div.className = 'celda';
+      div.onclick = () => seleccion = i;
+      tablero.appendChild(div);
     });
+  }
+
+  window.registrarVoto = async function () {
+    if (seleccion === null) return;
+    // Using oxo_votos table and casilla column
+    await supabase.from('oxo_votos').insert([{ casilla: seleccion }]);
+    seleccion = null;
+  };
+
+  window.aplicarJugadaMasVotada = async function () {
+    // Using oxo_votos table and casilla column
+    const { data } = await supabase.from('oxo_votos').select('casilla');
+    const votos = data.map(d => d.casilla);
+    const masVotada = votos.sort((a, b) =>
+      votos.filter(v => v === a).length - votos.filter(v => v === b).length
+    ).pop();
+    console.log("Casilla más votada:", masVotada);
+    // Using oxo_votos table
+    await supabase.from('oxo_votos').delete().neq('id', 0); // Limpia votos
+  }
+
+  window.reiniciarPartida = async function () {
+    // Using oxo_votos table
+    await supabase.from('oxo_votos').delete().neq('id', 0);
+  }
+
+  dibujarTablero(Array(9).fill(''));
+});
   </script>
 </body>
 </html>
