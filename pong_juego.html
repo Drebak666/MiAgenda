@@ -12,52 +12,53 @@
       text-align: center;
       margin: 0;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
     }
     canvas {
       background-color: black;
       display: block;
       margin: 0 auto;
+      flex: 1;
     }
     .scoreboard {
-      font-size: 64px;
-      margin-bottom: 10px;
+      font-size: 48px;
+      padding: 10px;
     }
     .mobile-controls {
       display: flex;
       justify-content: space-around;
-      margin-top: 10px;
+      background: #111;
+      padding: 15px;
     }
     .btn {
-      font-size: 20px;
-      padding: 15px;
-      background-color: transparent;
-      color: white;
-      border: 2px solid white;
-      border-radius: 5px;
+      font-size: 28px;
+      padding: 20px;
+      background-color: white;
+      color: black;
+      border: none;
+      border-radius: 10px;
+      width: 45%;
     }
   </style>
 </head>
 <body>
-  <h1 style="color:white;">Tennis for Two (1958)</h1>
+  <h1 style="color:white; font-size: 28px; margin: 10px 0;">Tennis for Two (1958)</h1>
   <div class="scoreboard">
     <span id="score1">0</span> - <span id="score2">0</span>
   </div>
   <canvas id="tennisCanvas" width="800" height="400"></canvas>
+
+  <!-- Controles SOLO para el jugador -->
   <div class="mobile-controls">
-    <div>
-      <button class="btn" ontouchstart="player1.up=true" ontouchend="player1.up=false">P1 ⬆️</button>
-      <button class="btn" ontouchstart="player1.down=true" ontouchend="player1.down=false">P1 ⬇️</button>
-    </div>
-    <div>
-      <button class="btn" ontouchstart="player2.up=true" ontouchend="player2.up=false">P2 ⬆️</button>
-      <button class="btn" ontouchstart="player2.down=true" ontouchend="player2.down=false">P2 ⬇️</button>
-    </div>
+    <button class="btn" ontouchstart="player1.up=true" ontouchend="player1.up=false">⬆️</button>
+    <button class="btn" ontouchstart="player1.down=true" ontouchend="player1.down=false">⬇️</button>
   </div>
 
   <script>
     const canvas = document.getElementById('tennisCanvas');
     const ctx = canvas.getContext('2d');
-
     const score1El = document.getElementById('score1');
     const score2El = document.getElementById('score2');
 
@@ -80,11 +81,9 @@
       score: 0
     };
 
-    const player2 = {
+    const cpu = {
       x: canvas.width - 30,
       y: canvas.height / 2 - paddleHeight / 2,
-      up: false,
-      down: false,
       score: 0
     };
 
@@ -118,62 +117,71 @@
     }
 
     function update() {
+      // Movimiento pelota
       ball.x += ball.dx;
       ball.y += ball.dy;
 
-      if (ball.y < 0 || ball.y > canvas.height) {
-        ball.dy = -ball.dy;
-      }
+      if (ball.y < 0 || ball.y > canvas.height) ball.dy = -ball.dy;
 
+      // Rebote jugador
       if (ball.x - ball.radius < player1.x + paddleWidth &&
           ball.y > player1.y && ball.y < player1.y + paddleHeight) {
         ball.dx = -ball.dx;
       }
 
-      if (ball.x + ball.radius > player2.x &&
-          ball.y > player2.y && ball.y < player2.y + paddleHeight) {
+      // Rebote CPU
+      if (ball.x + ball.radius > cpu.x &&
+          ball.y > cpu.y && ball.y < cpu.y + paddleHeight) {
         ball.dx = -ball.dx;
       }
 
+      // Punto CPU
       if (ball.x < 0) {
-        player2.score++;
-        score2El.textContent = player2.score;
+        cpu.score++;
+        score2El.textContent = cpu.score;
         resetBall(1);
       }
 
+      // Punto Jugador
       if (ball.x > canvas.width) {
         player1.score++;
         score1El.textContent = player1.score;
         resetBall(-1);
       }
 
+      // Movimiento jugador
       if (player1.up && player1.y > 0) player1.y -= 5;
       if (player1.down && player1.y + paddleHeight < canvas.height) player1.y += 5;
-      if (player2.up && player2.y > 0) player2.y -= 5;
-      if (player2.down && player2.y + paddleHeight < canvas.height) player2.y += 5;
+
+      // CPU dificultad media
+      const cpuCenter = cpu.y + paddleHeight / 2;
+      if (cpuCenter < ball.y - 10) {
+        cpu.y += 3;
+      } else if (cpuCenter > ball.y + 10) {
+        cpu.y -= 3;
+      }
+
+      // Limitar CPU
+      cpu.y = Math.max(0, Math.min(canvas.height - paddleHeight, cpu.y));
     }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       drawCourt();
       drawPaddle(player1);
-      drawPaddle(player2);
+      drawPaddle(cpu);
       drawBall();
       update();
     }
 
+    // Teclado
     document.addEventListener('keydown', e => {
       if (e.key === 'w') player1.up = true;
       if (e.key === 's') player1.down = true;
-      if (e.key === 'ArrowUp') player2.up = true;
-      if (e.key === 'ArrowDown') player2.down = true;
     });
-
     document.addEventListener('keyup', e => {
       if (e.key === 'w') player1.up = false;
       if (e.key === 's') player1.down = false;
-      if (e.key === 'ArrowUp') player2.up = false;
-      if (e.key === 'ArrowDown') player2.down = false;
     });
 
     setInterval(draw, 1000 / 60);
